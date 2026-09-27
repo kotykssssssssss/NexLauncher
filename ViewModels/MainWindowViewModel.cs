@@ -12,6 +12,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NexLauncher.Models;
 using NexLauncher.Services;
+using NexLauncher.Services.Loaders;
+using NexLauncher.Services.Network;
+using NexLauncher.Services.Storage;
+using NexLauncher.Services.Modrinth;
 
 namespace NexLauncher.ViewModels;
 
@@ -41,6 +45,10 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _notice = "";
 
     [ObservableProperty] private string _javaPath = "";
+    [ObservableProperty] private string _instancesDirectory = "";
+    public Func<Task<string?>>? PickInstancesFolderAsync { get; set; }
+    public IAsyncRelayCommand ChooseInstancesFolderCommand { get; }
+    public LoaderOptionsViewModel LoaderOptions { get; }
     [ObservableProperty] private int _memoryGb = 4;
     [ObservableProperty] private bool _includeSnapshots;
     [ObservableProperty] private bool _isWorking;
@@ -54,6 +62,10 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsPlayPage => CurrentPage == "play";
     public bool IsInstancesPage => CurrentPage == "instances";
     public bool IsSettingsPage => CurrentPage == "settings";
+    public bool IsModrinthPage => CurrentPage is "modrinth" or "mods";
+    public bool IsPacksPage => CurrentPage == "modrinth";
+    public bool CanOpenMods => SelectedInstance is { Loader: not ModLoader.Vanilla };
+    public ModrinthViewModel Catalog { get; }
     public bool HasInstance => SelectedInstance is not null;
     public bool HasNoInstances => Instances.Count == 0;
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
@@ -66,10 +78,10 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsInstalled => SelectedInstance is not null && _minecraft.IsInstalled(SelectedInstance);
     public string AccountName => Accounts.Username;
     public string InstanceTitle => SelectedInstance?.Name ?? "Твоя первая сборка";
-    public string InstanceDetails => SelectedInstance is null ? "Minecraft: Java Edition" : $"Minecraft {SelectedInstance.VersionId} · Vanilla";
+    public string InstanceDetails => SelectedInstance?.Details ?? "Minecraft: Java Edition";
     public string InstallState => IsGameRunning ? "Игра запущена" : IsInstalled ? "Установлено" : "Нужна установка";
     public string MemoryLabel => $"{MemoryGb} ГБ";
-    public string GameDirectory => SelectedInstance is null ? _store.DataDirectory : Path.Combine(_store.DataDirectory, "instances", SelectedInstance.Id, "game");
+    public string GameDirectory => SelectedInstance is null ? _store.DataDirectory : SafePaths.GamePath(_store.DataDirectory, SelectedInstance);
     public string DataDirectory => _store.DataDirectory;
     public string VersionCount => IsLoadingVersions ? "Обновляем список…" : $"{Versions.Count} версий";
     public string PrimaryButtonText => IsWorking ? (IsGameRunning ? "Игра запущена" : "Подготовка…") :
@@ -91,10 +103,12 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand SignInCommand { get; }
     public IAsyncRelayCommand SaveSettingsCommand { get; }
 
-    public MainWindowViewModel(ConfigurationStore store, IMinecraftService minecraft, IAccountService accounts)
+    public MainWindowViewModel(ConfigurationStore store, IMinecraftService minecraft, IAccountService accounts, ILoaderCatalog? loaderCatalog = null, IModrinthService? modrinth = null)
     {
         _store = store;
         _minecraft = minecraft;
+        LoaderOptions = new LoaderOptionsViewModel(loaderCatalog ?? new LoaderCatalog(LauncherHttp.Shared), RefreshState);
+        InstancesDirectory = Path.Combine(store.DataDirectory, "instances");
         Accounts = new AccountsViewModel(accounts, RunAccountOperationAsync, () => IsEditable, RefreshState);
         QuickCss = new QuickCssViewModel(store.DataDirectory, SaveQuickCssAsync, () => IsEditable);
         QuickCss.PropertyChanged += (_, args) =>
@@ -102,9 +116,11 @@ public partial class MainWindowViewModel : ObservableObject
             if (args.PropertyName == nameof(QuickCssViewModel.IsBusy)) RefreshState();
         };
         _log = new LauncherLog(store.DataDirectory);
+        Catalog = new ModrinthViewModel(modrinth ?? new ModrinthService(LauncherHttp.Shared), LauncherHttp.Shared, minecraft,
+            RunOperationAsync, CreateProgress, () => IsEditable, () => InstancesDirectory, PublishPackAsync, AppendLog);
         NavigateCommand = new RelayCommand<string>(page =>
         {
-            if (page is "play" or "instances" or "settings") CurrentPage = page;
+            if (page is "play" or "instances" or "settings" or "modrinth" or "mods") CurrentPage = page;
         });
         CancelCommand = new RelayCommand(() => _operation?.Cancel(), () => CanCancel);
         DismissErrorCommand = new RelayCommand(() => ErrorMessage = "");
@@ -112,7 +128,8 @@ public partial class MainWindowViewModel : ObservableObject
         OpenFolderCommand = new RelayCommand(() => OpenPath(GameDirectory, true), () => HasInstance);
         OpenLogCommand = new RelayCommand(() => { _log.Write("Открытие журнала."); OpenPath(_log.FilePath, false); });
         RefreshVersionsCommand = new AsyncRelayCommand(RefreshVersionsAsync, () => IsEditable);
-        CreateInstanceCommand = new AsyncRelayCommand(CreateInstanceAsync, () => IsEditable && SelectedVersion is not null && !string.IsNullOrWhiteSpace(NewInstanceName));
+        CreateInstanceCommand = new AsyncRelayCommand(CreateInstanceAsync, () => IsEditable && LoaderOptions.CanCreate && SelectedVersion is not null && !string.IsNullOrWhiteSpace(NewInstanceName));
+        ChooseInstancesFolderCommand = new AsyncRelayCommand(ChooseInstancesFolderAsync, () => IsEditable);
         PrimaryCommand = new AsyncRelayCommand(InstallOrPlayAsync, () => IsEditable);
         SignInCommand = Accounts.AddCommand;
         SaveSettingsCommand = new AsyncRelayCommand(SaveSettingsAsync, () => IsEditable);
@@ -126,6 +143,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _loadingConfiguration = true;
             _configuration = await _store.LoadAsync();
+            InstancesDirectory = string.IsNullOrEmpty(_configuration.InstancesDirectory) ? Path.Combine(_store.DataDirectory, "instances") : _configuration.InstancesDirectory;
             await QuickCss.InitializeAsync(_configuration.QuickCss);
             IncludeSnapshots = _configuration.ShowSnapshots;
             foreach (var instance in _configuration.Instances) Instances.Add(instance);
@@ -148,13 +166,22 @@ public partial class MainWindowViewModel : ObservableObject
         if (_configurationAvailable) await RefreshVersionsAsync();
     }
 
-    partial void OnCurrentPageChanged(string value) => RefreshState();
+    partial void OnCurrentPageChanged(string value)
+    {
+        if (Catalog is not null)
+        {
+            if (value is "modrinth" or "mods") Catalog.Open(value == "modrinth", SelectedInstance, GameDirectory);
+            else Catalog.Deactivate();
+        }
+        RefreshState();
+    }
     partial void OnSelectedInstanceChanged(GameInstance? value)
     {
         _loadingSelection = true;
         MemoryGb = (value?.MemoryMb ?? 4096) / 1024;
         JavaPath = value?.JavaPath ?? "";
         _loadingSelection = false;
+        if (CurrentPage == "mods") Catalog?.Open(false, value, GameDirectory);
         StatusText = value is null ? "Выбери версию и создай свою первую сборку." :
             _minecraft.IsInstalled(value) ? "Сборка готова. Можно запускать." : "Файлы игры ещё не установлены.";
         if (value is not null)
@@ -164,7 +191,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         RefreshState();
     }
-    partial void OnSelectedVersionChanged(MinecraftRelease? value) => RefreshState();
+    partial void OnSelectedVersionChanged(MinecraftRelease? value) { LoaderOptions.SetMinecraft(value?.Id); RefreshState(); }
     partial void OnNewInstanceNameChanged(string value) => RefreshState();
     partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasError));
     partial void OnNoticeChanged(string value) => OnPropertyChanged(nameof(HasNotice));
@@ -176,7 +203,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshState()
     {
-        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsSettingsPage),
+        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(CanOpenMods),
             nameof(HasInstance), nameof(HasNoInstances), nameof(HasAccount), nameof(HasNoAccount), nameof(IsEditable),
             nameof(CanCancel), nameof(ShowProgress), nameof(IsInstalled), nameof(AccountName), nameof(InstanceTitle),
             nameof(InstanceDetails), nameof(InstallState), nameof(GameDirectory), nameof(PrimaryButtonText),
@@ -190,8 +217,10 @@ public partial class MainWindowViewModel : ObservableObject
         PrimaryCommand?.NotifyCanExecuteChanged();
         SignInCommand?.NotifyCanExecuteChanged();
         SaveSettingsCommand?.NotifyCanExecuteChanged();
+        ChooseInstancesFolderCommand?.NotifyCanExecuteChanged();
         Accounts?.RefreshCommands();
         QuickCss?.RefreshCommands();
+        Catalog?.RefreshCommands();
     }
 
     private void FilterVersions()
@@ -233,7 +262,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task CreateInstanceAsync()
     {
-        if (!IsEditable || SelectedVersion is null) return;
+        if (!IsEditable || SelectedVersion is null || !LoaderOptions.CanCreate) return;
         var name = NewInstanceName.Trim();
         if (name.Length is < 1 or > 60)
         {
@@ -241,11 +270,13 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
         IsWorking = true;
-        var instance = new GameInstance { Name = name, VersionId = SelectedVersion.Id };
-        Instances.Add(instance);
-        SelectedInstance = instance;
+        var instance = new GameInstance { Name = name, VersionId = SelectedVersion.Id, Loader = LoaderOptions.Loader, LoaderVersion = LoaderOptions.SelectedRelease?.Version ?? "" };
         try
         {
+            var root = await SafePaths.CheckWritableRootAsync(InstancesDirectory, CancellationToken.None);
+            instance.GameDirectory = SafePaths.Resolve(root, instance.Id + "/game");
+            Instances.Add(instance);
+            SelectedInstance = instance;
             await PersistAsync();
             CurrentPage = "play";
             Notice = "Сборка создана. Теперь можно установить игру.";
@@ -406,6 +437,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void Dispose()
     {
+        Catalog.Dispose();
+        LoaderOptions.Dispose();
         QuickCss.Dispose();
         Accounts.Dispose();
     }
@@ -417,7 +450,39 @@ public partial class MainWindowViewModel : ObservableObject
         _configuration.SelectedInstanceId = SelectedInstance?.Id;
 
         _configuration.ShowSnapshots = IncludeSnapshots;
+        _configuration.InstancesDirectory = InstancesDirectory;
         return _store.SaveAsync(_configuration, cancellationToken);
+    }
+
+    private async Task ChooseInstancesFolderAsync()
+    {
+        if (PickInstancesFolderAsync is null) return;
+        var selected = await PickInstancesFolderAsync();
+        if (selected is null) return;
+        await RunOperationAsync(async token =>
+        {
+            var previous = InstancesDirectory;
+            var root = await SafePaths.CheckWritableRootAsync(selected, token);
+            InstancesDirectory = root;
+            try { await PersistAsync(token); }
+            catch { InstancesDirectory = previous; throw; }
+            Notice = "Папка сохранена. Старые сборки остаются на прежнем месте; здесь появятся новые.";
+        });
+    }
+
+    private async Task PublishPackAsync(GameInstance instance, CancellationToken token)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => PublishPackAsync(instance, token));
+            return;
+        }
+        var previous = SelectedInstance;
+        Instances.Add(instance); SelectedInstance = instance;
+        try { await PersistAsync(token); }
+        catch { Instances.Remove(instance); SelectedInstance = previous; throw; }
+        Notice = "Modpack установлен: " + instance.Name + ". Выбери «Играть» для запуска.";
+        RefreshState();
     }
 
     private void AppendLog(string message)
@@ -451,6 +516,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void OnWindowClosing()
     {
+        Catalog.Deactivate();
         if (!IsGameRunning) _operation?.Cancel();
     }
 }

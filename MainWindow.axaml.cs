@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        viewModel.PickInstancesFolderAsync = PickInstancesFolderAsync;
         Opened += async (_, _) =>
         {
 
@@ -38,6 +39,13 @@ public partial class MainWindow : Window
         });
         try { return files.FirstOrDefault()?.TryGetLocalPath(); }
         finally { foreach (var file in files) file.Dispose(); }
+    }
+
+    private async Task<string?> PickInstancesFolderAsync()
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Папка новых сборок NexLauncher", AllowMultiple = false });
+        try { return folders.FirstOrDefault()?.TryGetLocalPath(); }
+        finally { foreach (var folder in folders) folder.Dispose(); }
     }
 
     private static MainWindowViewModel CreateViewModel()

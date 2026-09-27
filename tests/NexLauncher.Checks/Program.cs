@@ -39,8 +39,12 @@ internal static class Program
                 await CheckViewModel();
                 await CheckBackendGuards();
                 await RenderWindow();
+                await ModdedChecks.RunAsync(Root, Check);
+                await ProjectDetailsChecks.RunAsync(Root, Check);
+                if (args.Contains("--modded-network")) await ModdedChecks.LiveAsync(Check);
                 if (args.Contains("--network")) await CheckOfficialCatalogue();
                 if (args.Contains("--install-smoke")) await CheckInstallation();
+                if (args.Contains("--loader-install-smoke")) await ModdedChecks.InstallLiveAsync(Check);
                 Console.WriteLine($"PASS: {_checks} checks. Screenshots: {Root}");
             }
             catch (Exception ex)

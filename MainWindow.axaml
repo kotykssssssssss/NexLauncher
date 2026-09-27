@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NexLauncher.ViewModels"
         xmlns:models="using:NexLauncher.Models"
+        xmlns:views="using:NexLauncher.Views"
         x:Class="NexLauncher.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="True"
@@ -31,6 +32,7 @@
                             <TextBlock Text="Сборки"/>
                         </StackPanel>
                     </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsPacksPage}" Command="{Binding NavigateCommand}" CommandParameter="modrinth" Content="Modrinth"/>
                     <Button Classes="nav" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="settings">
                         <StackPanel Orientation="Horizontal" Spacing="14">
                             <PathIcon Width="15" Height="15" Data="M 2,4 L 20,4 L 20,6 L 2,6 Z M 2,10 L 20,10 L 20,12 L 2,12 Z M 2,16 L 20,16 L 20,18 L 2,18 Z M 6,2 L 9,2 L 9,8 L 6,8 Z M 14,8 L 17,8 L 17,14 L 14,14 Z M 7,14 L 10,14 L 10,20 L 7,20 Z"/>
@@ -104,6 +106,10 @@
                                 </Grid>
                             </StackPanel>
                         </Border>
+                        <WrapPanel IsVisible="{Binding HasInstance}">
+                            <Button Content="Моды" Command="{Binding NavigateCommand}" CommandParameter="mods" IsVisible="{Binding CanOpenMods}" Margin="0,0,8,0"/>
+                            <Button Content="Настройки сборки" Command="{Binding NavigateCommand}" CommandParameter="settings"/>
+                        </WrapPanel>
                         <TextBlock Text="Версия, миры и настройки хранятся отдельно для каждой сборки."
                                    Classes="caption" TextWrapping="Wrap"/>
                         <Border Background="#202725" CornerRadius="10" Padding="18,15" IsVisible="{Binding HasNoAccount}">
@@ -161,17 +167,32 @@
                                         <Button Grid.Column="1" Content="Обновить" Classes="quiet" Command="{Binding RefreshVersionsCommand}"/>
                                     </Grid>
                                 </StackPanel>
-                                <TextBlock Text="Vanilla · без модов" Classes="caption"/>
+                                <StackPanel Spacing="7" DataContext="{Binding LoaderOptions}" x:DataType="vm:LoaderOptionsViewModel">
+                                    <TextBlock Text="Загрузчик" Classes="caption"/>
+                                    <ComboBox ItemsSource="{Binding Loaders}" SelectedItem="{Binding Loader}"/>
+                                    <TextBlock Text="Версия загрузчика" Classes="caption" IsVisible="{Binding NeedsVersion}"/>
+                                    <ComboBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedRelease}" IsVisible="{Binding NeedsVersion}" PlaceholderText="Совместимая версия"/>
+                                    <TextBlock Text="{Binding Message}" Classes="caption" TextWrapping="Wrap"/>
+                                </StackPanel>
                                 <Button Content="Создать сборку" Classes="primary" Command="{Binding CreateInstanceCommand}" HorizontalAlignment="Right"/>
                             </StackPanel>
                         </Border>
                         <Button Content="Перейти к игре" Command="{Binding NavigateCommand}" CommandParameter="play" IsVisible="{Binding HasInstance}" HorizontalAlignment="Left"/>
                     </StackPanel>
+                    <StackPanel IsVisible="{Binding IsModrinthPage}"><views:ModrinthView DataContext="{Binding Catalog}"/></StackPanel>
                     <StackPanel IsVisible="{Binding IsSettingsPage}" Spacing="22">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Настройки" Classes="title"/>
                             <TextBlock Text="Всё нужное для комфортной игры." Classes="muted"/>
                         </StackPanel>
+                        <Border Classes="card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Папка сборок" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding InstancesDirectory}" TextWrapping="Wrap" Classes="caption"/>
+                                <Button Content="Выбрать папку…" Command="{Binding ChooseInstancesFolderCommand}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="Новые сборки будут создаваться здесь. Существующие останутся в своих папках." TextWrapping="Wrap" Classes="caption"/>
+                            </StackPanel>
+                        </Border>
                         <Border Classes="card" IsVisible="{Binding HasInstance}">
                             <StackPanel Spacing="18" IsEnabled="{Binding IsEditable}">
                                 <TextBlock Text="{Binding InstanceTitle}" FontSize="18" FontWeight="SemiBold"/>

@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NexLauncher.Models;
+using NexLauncher.Services.Loaders;
+using NexLauncher.Services.Storage;
 
 namespace NexLauncher.Services;
 
@@ -87,8 +89,9 @@ public sealed class ConfigurationStore
         }
     }
 
-    private static LauncherConfiguration ValidateAndCopy(LauncherConfiguration source)
+    private LauncherConfiguration ValidateAndCopy(LauncherConfiguration source)
     {
+        if (source.FormatVersion is < 1 or > 2) throw new InvalidDataException("Неизвестная версия настроек.");
         if (source.Instances is null)
             throw new InvalidDataException("Список сборок не может быть null.");
 
@@ -102,6 +105,7 @@ public sealed class ConfigurationStore
 
         var result = new LauncherConfiguration
         {
+            InstancesDirectory = string.IsNullOrWhiteSpace(source.InstancesDirectory) ? Path.Combine(DataDirectory, "instances") : SafePaths.LocalRoot(source.InstancesDirectory),
             MicrosoftClientId = clientId,
             ShowSnapshots = source.ShowSnapshots,
             QuickCss = CopyQuickCss(source.QuickCss)
@@ -124,12 +128,19 @@ public sealed class ConfigurationStore
                 throw new InvalidDataException($"У сборки «{name}» недопустимый идентификатор версии Minecraft.");
             if (instance.MemoryMb < 1024 || instance.MemoryMb > 32768)
                 throw new InvalidDataException($"Память для сборки «{name}» должна быть от 1024 до 32768 МБ.");
+            LoaderCatalog.ValidateInstance(instance);
 
             result.Instances.Add(new GameInstance
             {
                 Id = normalizedId,
                 Name = name,
                 VersionId = version,
+                Loader = instance.Loader,
+                LoaderVersion = instance.LoaderVersion,
+                // Missing paths belong to old Vanilla profiles and must never follow a new default root.
+                GameDirectory = SafePaths.GamePath(DataDirectory, instance),
+                ModrinthProjectId = instance.ModrinthProjectId,
+                ModrinthVersionId = instance.ModrinthVersionId,
                 MemoryMb = instance.MemoryMb,
                 JavaPath = instance.JavaPath?.Trim() ?? ""
             });

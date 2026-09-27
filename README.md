@@ -7,6 +7,13 @@
 
 - «Играть», «Сборки», «Настройки», журнал запуска и понятные ошибки.
 - Каталог Vanilla: релизы по умолчанию, снапшоты по желанию.
+- Независимые Vanilla / Fabric / Forge / NeoForge сборки с выбором совместимой
+  loader version из официальной metadata. Forge — с Minecraft 1.13, NeoForge — с 1.20.2.
+- Modrinth: поиск modpacks и совместимых модов, проверка dependencies, установка,
+  выбор версии, проверка обновлений и безопасное удаление управляемых модов.
+  Отдельная страница проекта с полным безопасным Markdown-описанием, авторами,
+  ссылками и установленной версией. Для отдельных модов: «Играть → Моды».
+- Системный выбор папки новых сборок на локальном диске; старые пути сохраняются.
 - Отдельные версии, игровые папки, миры, RAM и Java для каждой сборки.
 - Установка клиента, библиотек, ресурсов и Java через CmlLib.Core;
   прогресс, отмена и восстановление файлов перед запуском.
@@ -29,6 +36,9 @@
 - [Готовая тема Plum Evening](Assets/quickcss.example.css).
 - [Локальные и Microsoft-аккаунты: создание, выбор, хранение](docs/ACCOUNTS.md).
 - [Microsoft authentication, защищённый кеш и ручные проверки](docs/MICROSOFT_AUTH.md).
+- [Загрузчики: источники, установка, Java и ограничения](docs/MOD_LOADERS.md).
+- [Modrinth: моды, dependencies, modpacks, правила и восстановление](docs/MODRINTH.md).
+- [Папки, migration и безопасность хранения](docs/STORAGE.md).
 
 ## Запуск разработки
 
@@ -76,6 +86,9 @@ CmlLib.Core 4.0.6, Auth.Microsoft 3.3.1 и Avalonia 12.1.0 сохранены.
   зашифрованные DPAPI CurrentUser. Прочитать его может текущий пользователь Windows.
 - themes/ — примеры пользовательских CSS-файлов.
 - instances/<guid>/game/ — отдельная игра, миры и настройки каждой сборки.
+  Это прежнее место по умолчанию; новые сборки могут находиться в выбранной папке.
+- В папке игры `.nexlauncher/mods.json` — metadata управляемых модов,
+  `.nexlauncher/pack.json` — источник и состав установленного Modrinth pack.
 - catalogue/ — каталог версий.
 - logs/launcher.log — ограниченный журнал с редактированием токенов.
 
@@ -100,6 +113,23 @@ Console harness проверяет настройки, parser, runtime Quick CSS
 Microsoft-вызовов в локальных операциях, передачу сессии в запуск, отмену и отрисовку окна.
 Настоящее окно Avalonia рендерится в Headless; снимки, включая применённую
 тему, сохраняются в .artifacts/checks/. Для DPAPI-проверок нужен Windows.
+Новые fixtures покрывают metadata загрузчиков, root migration, HTTP/rate limits,
+Modrinth compatibility/dependencies, hashes, staging, mrpack, небезопасные пути
+и UI создания сборок. Обычный suite не требует доступности Modrinth/loader API.
+Проверки details покрывают API metadata, безопасную разметку/ссылки, отмену,
+совместимость перед установкой, update/remove и сохранность ручных JAR.
+Снимки details и его Quick CSS оформления также находятся в `.artifacts/checks/`.
+
+Отдельная проверка официальных loader metadata и Modrinth API:
+
+    dotnet run --project tests/NexLauncher.Checks -c Release --artifacts-path .artifacts -- --modded-network
+
+Реальные Fabric/Forge/NeoForge installers и построение launch process (без открытия игры):
+
+    dotnet run --project tests/NexLauncher.Checks -c Release --artifacts-path .artifacts -- --loader-install-smoke
+
+Последняя команда скачивает несколько независимых установок в `.artifacts/loader-smoke`.
+Нужны сеть, свободное место и время. Повторный запуск проверяет repair.
 
 Реальный каталог Mojang:
 
@@ -118,7 +148,8 @@ silent refresh после перезапуска и полноценный иг�
 
 ## Дальше
 
-Fabric/Forge, управление модами и импорт сборок. Для Linux/macOS нужен отдельный
+Перенос существующих сборок, обновление целого modpack и другие loaders остаются
+за рамками этого этапа. Для Linux/macOS нужен отдельный
 OAuth backend с собственным зарегистрированным Client ID и хранилище секретов ОС;
 границы IAccountService / IMinecraftAuthenticationBackend / IAccountVault
 позволяют добавить их без переписывания UI и механизма запуска.

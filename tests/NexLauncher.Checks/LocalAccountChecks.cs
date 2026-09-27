@@ -148,7 +148,7 @@ internal static class LocalAccountChecks
         check(persisted.ActiveAccountType == AccountType.Microsoft && persisted.ActiveAccountId == priorSession.UUID && persisted.LocalAccounts.Count == 0,
             "Microsoft-only migration persists provider type and active account reference");
         var local = await migrated.CreateLocalAccountAsync("LocalBefore", default);
-        await migrated.SelectAccountAsync(priorSession.UUID, default);
+        await migrated.SelectAccountAsync(priorSession.UUID ?? throw new InvalidOperationException("Missing fixture UUID"), default);
         var restarted = new AccountService(microsoft, new LocalAccountStore(path));
         await restarted.InitializeAsync(default);
         check(restarted.ActiveAccountId == priorSession.UUID && restarted.Accounts.Count == 3 && restarted.Accounts.Any(x => x.Id == local.Id),
@@ -165,7 +165,7 @@ internal static class LocalAccountChecks
         var service = new AccountService(microsoft, storage);
         var online = await service.SignInAsync(default);
         var local = await service.CreateLocalAccountAsync("AvailableLocal", default);
-        await service.SelectAccountAsync(online.UUID, default);
+        await service.SelectAccountAsync(online.UUID ?? throw new InvalidOperationException("Missing fixture UUID"), default);
         microsoft.ReturnNullSession = true;
         await Rejects<InvalidOperationException>(() => service.RestoreAsync(default), check,
             "an explicitly selected Microsoft account with no restored session fails without offline fallback");
@@ -190,7 +190,7 @@ internal static class LocalAccountChecks
         var service = new AccountService(microsoft, storage);
         var online = await service.SignInAsync(default);
         var local = await service.CreateLocalAccountAsync("KeptLocal", default);
-        await service.SelectAccountAsync(online.UUID, default);
+        await service.SelectAccountAsync(online.UUID ?? throw new InvalidOperationException("Missing fixture UUID"), default);
         storage.FailNextSave = true;
         await Rejects<AccountStorageException>(() => service.RemoveAccountAsync(online.UUID, default), check,
             "Microsoft credential removal reports a later public-selection save failure");
@@ -212,7 +212,7 @@ internal static class LocalAccountChecks
         var cancellationService = new AccountService(cancellationMicrosoft, cancellationStore);
         var cancellationOnline = await cancellationService.SignInAsync(default);
         var cancellationLocal = await cancellationService.CreateLocalAccountAsync("AfterCancel", default);
-        await cancellationService.SelectAccountAsync(cancellationOnline.UUID, default);
+        await cancellationService.SelectAccountAsync(cancellationOnline.UUID ?? throw new InvalidOperationException("Missing fixture UUID"), default);
         using var cancellation = new CancellationTokenSource();
         cancellationMicrosoft.CancelAfterRemoval = cancellation;
         await cancellationService.RemoveAccountAsync(cancellationOnline.UUID, cancellation.Token);
