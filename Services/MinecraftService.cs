@@ -114,7 +114,7 @@ public sealed class MinecraftService : IMinecraftService
                 MaximumRamMb = settings.MemoryMb,
                 JavaPath = profile.JavaPath,
                 GameLauncherName = "NexLauncher",
-                GameLauncherVersion = "0.1"
+                GameLauncherVersion = BuildInfo.Version
             }, cancellationToken).ConfigureAwait(false);
 
             if (!File.Exists(process.StartInfo.FileName))

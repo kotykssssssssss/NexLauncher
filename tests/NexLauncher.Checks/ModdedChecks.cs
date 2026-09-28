@@ -372,7 +372,8 @@ internal static class ModdedChecks
         public Task<IReadOnlyList<ModrinthTeamMember>> MembersAsync(string projectId, CancellationToken token) => Task.FromResult<IReadOnlyList<ModrinthTeamMember>>([]);
         public Task<ModrinthVersion> VersionAsync(string id, CancellationToken token) { Requested.Add(id); return Task.FromResult(Versions[id]); }
         public Task<IReadOnlyList<ModrinthVersion>> VersionsAsync(string projectId, GameInstance? instance, CancellationToken token) => Task.FromResult<IReadOnlyList<ModrinthVersion>>(Versions.Values.Where(x => x.ProjectId == projectId).ToArray());
-        public Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token)
+        public Task<ModrinthFilterCatalog> FilterCatalogAsync(CancellationToken token) => Task.FromResult(new ModrinthFilterCatalog([], []));
+        public Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token, ModrinthSearchOptions? options = null)
         { SearchCalls++; LastSearchInstance = instance; return Task.FromResult(new ModrinthSearchResult { Hits = Projects.Values.Select(x => new ModrinthHit { ProjectId = x.Id, Title = x.Title, Description = x.Description, Author = "Fixture author", ProjectType = x.ProjectType, Versions = ["1.21.1"], Categories = ["neoforge"], Downloads = 1200 }).ToList(), TotalHits = Projects.Count }); }
     }
     private sealed class FakeCatalog : ILoaderCatalog

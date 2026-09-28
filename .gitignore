@@ -5,3 +5,14 @@ obj/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+*.csproj.user
+*.pubxml.user
+*.suo
+*.dmp
+/dist/
+/publish/
+/TestResults/
+/settings.json
+/auth/
+/instances/
+/logs/

@@ -19,6 +19,12 @@ public sealed partial class ModrinthResultViewModel(ModrinthHit hit) : Observabl
 {
     public ModrinthHit Hit { get; } = hit;
     [ObservableProperty] private Bitmap? _icon;
+    [ObservableProperty] private string _installedState = "Выбрать версию →";
+    public void UpdateInstalled(System.Collections.Generic.IEnumerable<InstalledMod> installed)
+    {
+        var current = installed.FirstOrDefault(x => x.Version.ProjectId == Hit.ProjectId);
+        InstalledState = current is null ? "Выбрать версию →" : "Установлен · " + current.Version.VersionNumber + " →";
+    }
     public void Dispose() => Icon?.Dispose();
 }
 
@@ -69,10 +75,10 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
     public bool HasNoVersions => HasDetails && Versions.Count == 0;
     public bool HasNoInstalled => Installed.Count == 0;
     public bool HasError => Error.Length > 0;
+    public bool HasMessage => Message.Length > 0;
     public bool HasPlan => PlanText.Length > 0;
-    public bool HasNoResults => !IsBusy && Results.Count == 0;
+    public bool HasNoResults => !IsBusy && !HasError && CanSearch && Results.Count == 0;
     public string Context => IsPacks ? "Готовые сборки из Modrinth" : _instance is null ? "Выбери сборку с загрузчиком." : _instance.Name + " · " + _instance.Details;
-    public string SearchTitle => IsPacks ? "Найти modpack" : "Найти мод для этой сборки";
     public IAsyncRelayCommand SearchCommand { get; }
     public IAsyncRelayCommand NextCommand { get; }
     public IAsyncRelayCommand PreviousCommand { get; }
@@ -80,7 +86,6 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
     public IAsyncRelayCommand InstallCommand { get; }
     public IAsyncRelayCommand RefreshInstalledCommand { get; }
     public IAsyncRelayCommand RemoveCommand { get; }
-    public IAsyncRelayCommand CheckUpdateCommand { get; }
     public IAsyncRelayCommand RetryDetailsCommand { get; }
     public IRelayCommand BackCommand { get; }
     public IRelayCommand CancelRequestCommand { get; }
@@ -93,38 +98,44 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
     {
         _api = api; _http = http; _mods = new(api, http); _packs = new(api, http, minecraft);
         _run = run; _progress = progress; _canEdit = canEdit; _root = root; _publish = publish; _log = log;
-        SearchCommand = new AsyncRelayCommand(() => SearchAsync(false), () => _active && !IsBusy && _canEdit());
-        NextCommand = new AsyncRelayCommand(async () => { _offset += 20; await SearchAsync(false); }, () => !IsBusy && _canEdit() && _offset + 20 < _total);
-        PreviousCommand = new AsyncRelayCommand(async () => { _offset = Math.Max(0, _offset - 20); await SearchAsync(false); }, () => !IsBusy && _canEdit() && _offset > 0);
+        SearchCommand = new AsyncRelayCommand(() => SearchAsync(false), () => _active && !IsBusy && _canEdit() && CanSearch);
+        NextCommand = new AsyncRelayCommand(() => SearchAsync(false, page: _offset + 20), () => !IsBusy && _canEdit() && _offset + 20 < _total);
+        PreviousCommand = new AsyncRelayCommand(() => SearchAsync(false, page: Math.Max(0, _offset - 20)), () => !IsBusy && _canEdit() && _offset > 0);
         PlanCommand = new AsyncRelayCommand(PlanAsync, () => _canEdit() && !IsLoadingDetails && SelectedVersion is not null && HasDetails && !IsPacks);
         InstallCommand = new AsyncRelayCommand(InstallAsync, () => _canEdit() && !IsLoadingDetails && SelectedVersion is not null && HasDetails && (IsPacks || _plannedVersion == SelectedVersion.Id));
         RefreshInstalledCommand = new AsyncRelayCommand(RefreshInstalledAsync, () => _canEdit() && IsMods && _instance is not null);
         RemoveCommand = new AsyncRelayCommand(RemoveAsync, () => _canEdit() && SelectedInstalled is not null);
-        CheckUpdateCommand = new AsyncRelayCommand(CheckUpdateAsync, () => _canEdit() && SelectedInstalled is not null);
-        ShowInstalledCommand = new RelayCommand(() => ShowInstalled(SelectedInstalled!), () => _canEdit() && SelectedInstalled is not null);
+        ShowInstalledCommand = new RelayCommand(() => OpenInstalledDetails(SelectedInstalled!), () => _canEdit() && SelectedInstalled is not null);
         RetryDetailsCommand = new AsyncRelayCommand(() => LoadDetailsAsync(SelectedResult), () => _active && IsDetails && !IsLoadingDetails && _canEdit());
         BackCommand = new RelayCommand(() => { SelectedResult = null; IsDetails = false; Error = ""; }, () => _canEdit());
         CancelRequestCommand = new RelayCommand(() => { _search?.Cancel(); _detailsRequest?.Cancel(); Message = "Загрузка отменена. Можно повторить запрос."; }, () => IsBusy || IsLoadingDetails);
         OpenModrinthCommand = new RelayCommand(() => OpenUrl("https://modrinth.com"));
+        InitializeBrowserCommands();
     }
 
     public void Open(bool packs, GameInstance? instance, string game)
     {
+        if (_opened && packs == IsPacks && (packs || _instance?.Id == instance?.Id))
+        { _active = true; RefreshCommands(); if (!IsDetails && Results.Count == 0 && CanSearch) _ = SearchAsync(false); return; }
+        SaveBrowserState();
         Deactivate(); _contextGeneration++; _active = true; IsPacks = packs; _instance = instance; _game = game;
         _offset = 0; _total = 0; PlanText = ""; _plannedVersion = null; SelectedResult = null; IsDetails = false; Installed.Clear(); SelectedInstalled = null;
         OnPropertyChanged(nameof(HasNoInstalled));
-        OnPropertyChanged(nameof(Context)); OnPropertyChanged(nameof(IsMods)); OnPropertyChanged(nameof(SearchTitle));
+        OnPropertyChanged(nameof(Context)); OnPropertyChanged(nameof(IsMods));
+        RestoreBrowserState(packs, instance);
         if (!packs && (instance is null || instance.Loader == ModLoader.Vanilla))
-        { Error = "Vanilla не поддерживает моды. Создай Fabric, Forge или NeoForge сборку."; ClearResults(); RefreshCommands(); return; }
-        _ = SearchAsync(false);
+        { Error = instance is null ? "" : "Vanilla не поддерживает моды. Создай Fabric, Forge или NeoForge сборку."; Message = ""; ClearResults(); RefreshCommands(); return; }
+        _ = SearchAsync(false, preserveScroll: true);
         if (!packs) _ = RefreshInstalledAsync();
+        if (!_filtersLoaded) _ = LoadFiltersAsync();
     }
     public void Deactivate() { _active = false; _search?.Cancel(); _detailsRequest?.Cancel(); }
-    partial void OnQueryChanged(string value) { _offset = 0; if (_active) _ = SearchAsync(true); }
+    partial void OnQueryChanged(string value) { if (_restoringBrowser) return; _offset = 0; if (_active && CanSearch) _ = SearchAsync(true); }
     partial void OnSelectedResultChanged(ModrinthResultViewModel? value) { _plannedVersion = null; PlanText = ""; _ = LoadDetailsAsync(value); RefreshCommands(); }
     partial void OnSelectedVersionChanged(ModrinthVersion? value) { _plannedVersion = null; PlanText = ""; RefreshCommands(); }
     partial void OnSelectedInstalledChanged(InstalledMod? value) => RefreshCommands();
-    partial void OnErrorChanged(string value) => OnPropertyChanged(nameof(HasError));
+    partial void OnErrorChanged(string value) { OnPropertyChanged(nameof(HasError)); OnPropertyChanged(nameof(HasNoResults)); }
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
     partial void OnPlanTextChanged(string value) => OnPropertyChanged(nameof(HasPlan));
     partial void OnIsBusyChanged(bool value) { OnPropertyChanged(nameof(HasNoResults)); RefreshCommands(); }
     partial void OnIsDetailsChanged(bool value) { OnPropertyChanged(nameof(IsBrowsing)); RefreshCommands(); }
@@ -136,27 +147,32 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
     {
         SearchCommand?.NotifyCanExecuteChanged(); NextCommand?.NotifyCanExecuteChanged(); PreviousCommand?.NotifyCanExecuteChanged();
         PlanCommand?.NotifyCanExecuteChanged(); InstallCommand?.NotifyCanExecuteChanged(); RemoveCommand?.NotifyCanExecuteChanged();
-        CheckUpdateCommand?.NotifyCanExecuteChanged(); RefreshInstalledCommand?.NotifyCanExecuteChanged();
+        RefreshInstalledCommand?.NotifyCanExecuteChanged();
         RetryDetailsCommand?.NotifyCanExecuteChanged(); CancelRequestCommand?.NotifyCanExecuteChanged(); BackCommand?.NotifyCanExecuteChanged(); ShowInstalledCommand?.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsEditable));
+        RefreshBrowserCommands();
     }
     private void ClearResults() { foreach (var item in Results) item.Dispose(); Results.Clear(); OnPropertyChanged(nameof(HasNoResults)); }
-    private async Task SearchAsync(bool debounce)
+    private async Task SearchAsync(bool debounce, bool preserveScroll = false, int? page = null)
     {
+        if (!CanSearch || !_active) return;
         _search?.Cancel();
         using var current = new CancellationTokenSource(); _search = current;
-        IsBusy = true; Error = "";
+        IsBusy = true; Error = ""; Message = "";
         try
         {
             if (debounce) await Task.Delay(400, current.Token);
-            var result = await _api.SearchAsync(Query, IsPacks, _instance, _offset, current.Token);
+            var requestedOffset = page ?? _offset;
+            var result = await _api.SearchAsync(Query, IsPacks, _instance, requestedOffset, current.Token, Filters.Options);
             current.Token.ThrowIfCancellationRequested();
             if (_disposed || !_active || !ReferenceEquals(current, _search)) return;
             SelectedResult = null; ClearResults();
-            foreach (var hit in result.Hits) Results.Add(new(hit));
-            _total = result.TotalHits;
-            Message = result.TotalHits == 0 ? "Ничего не найдено · Данные Modrinth" : $"{_offset + 1}–{_offset + result.Hits.Count} из {result.TotalHits} · Данные Modrinth";
-            foreach (var item in Results.ToArray()) await LoadIconAsync(item, current.Token);
+            foreach (var hit in result.Hits) { var row = new ModrinthResultViewModel(hit); row.UpdateInstalled(Installed); Results.Add(row); }
+            _offset = requestedOffset; _total = result.TotalHits;
+            if (!preserveScroll) ScrollOffset = 0;
+            OnPropertyChanged(nameof(SearchRevision));
+            foreach (var batch in Results.ToArray().Chunk(4))
+                await Task.WhenAll(batch.Select(item => LoadIconAsync(item, current.Token)));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (_active && !current.IsCancellationRequested && ReferenceEquals(current, _search)) SetError(ex); }
@@ -174,7 +190,7 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
         try
         {
             var bytes = await _http.GetBytesAsync(url, ["cdn.modrinth.com"], token, 2 * 1024 * 1024);
-            return await Task.Run(() => { using var stream = new MemoryStream(bytes); return Bitmap.DecodeToWidth(stream, 64); }, token);
+            return await Task.Run(() => { using var stream = new MemoryStream(bytes); return Bitmap.DecodeToWidth(stream, 128); }, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception) { /* Optional icon failure never blocks search or installation. */ }
@@ -204,6 +220,8 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
             if (_disposed || !_active || !ReferenceEquals(_detailsRequest, current)) return;
             // Keep the chooser safe even if a service implementation returns unfiltered results.
             foreach (var version in versionsTask.Result.Where(x => x.ProjectId == project.Id && (instance is null || ModrinthService.IsCompatible(x, instance)))
+                .Where(x => !IsPacks || ((Filters.Options.Minecraft.Length == 0 || x.GameVersions.Contains(Filters.Options.Minecraft)) &&
+                    (Filters.Options.Loader.Length == 0 || x.Loaders.Contains(Filters.Options.Loader))))
                 .Where(x => x.Environment is null ? project.ClientSide is "required" or "optional" : ModrinthService.SupportsClient(x.Environment))
                 .OrderByDescending(x => x.DatePublished)) Versions.Add(version);
             Details = new(project, descriptionTask.Result.Document, descriptionTask.Result.Notice, item.Hit.Author, membersTask.Result, OpenUrl);
@@ -267,6 +285,7 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
             var selected = SelectedInstalled?.Version.ProjectId;
             Installed.Clear(); foreach (var mod in installed.Projects) Installed.Add(mod);
             SelectedInstalled = Installed.FirstOrDefault(x => x.Version.ProjectId == selected);
+            foreach (var row in Results) row.UpdateInstalled(Installed);
             Details?.UpdateInstalled(Installed, Versions); OnPropertyChanged(nameof(HasNoInstalled)); RefreshCommands();
         }
         catch (Exception ex) { if (!_disposed && context == _contextGeneration && request == _installedGeneration) SetError(ex); }
@@ -279,22 +298,9 @@ public sealed partial class ModrinthViewModel : ObservableObject, IDisposable
         if (_disposed || generation != _contextGeneration) return;
         await RefreshInstalledAsync(); Message = "Мод удалён. Его зависимости сохранены; ненужные можно удалить отдельно.";
     });
-    private Task CheckUpdateAsync() => _run(async token =>
-    {
-        if (SelectedInstalled is not { } selected || _instance is null) return;
-        var generation = _contextGeneration;
-        var versions = await _api.VersionsAsync(selected.Version.ProjectId, _instance, token);
-        if (_disposed || generation != _contextGeneration) return;
-        var latest = versions.FirstOrDefault();
-        if (latest is null || latest.Id == selected.Version.Id || latest.DatePublished <= selected.Version.DatePublished)
-        { Message = "Совместимых обновлений не найдено."; return; }
-        ShowInstalled(selected);
-        // Let the ordinary details/version chooser load; updates use the same reviewed installation plan.
-        Message = "Доступно обновление " + latest.VersionNumber + ". Выбери версию и нажми «Проверить зависимости», затем «Установить».";
-    });
-    private void ShowInstalled(InstalledMod selected) => SelectedResult = new(new ModrinthHit { ProjectId = selected.Version.ProjectId, Title = selected.Title, ProjectType = "mod" });
+    private void OpenInstalledDetails(InstalledMod selected) => SelectedResult = new(new ModrinthHit { ProjectId = selected.Version.ProjectId, Title = selected.Title, ProjectType = "mod" });
     private void SetError(Exception ex) { Error = LauncherLog.Sanitize(ex.Message); _log(ex.ToString()); }
     private void OpenUrl(string url)
     { if (!SafeProjectLink.TryCreate(url, out var uri)) return; try { Process.Start(new ProcessStartInfo(uri!.AbsoluteUri) { UseShellExecute = true }); } catch (Exception ex) { SetError(ex); } }
-    public void Dispose() { _disposed = true; Deactivate(); Details = null; ClearResults(); }
+    public void Dispose() { _disposed = true; Deactivate(); _filterRequest?.Cancel(); Details = null; ClearResults(); }
 }

@@ -12,7 +12,8 @@ namespace NexLauncher.Services.Modrinth;
 
 public interface IModrinthService
 {
-    Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token);
+    Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token, ModrinthSearchOptions? options = null);
+    Task<ModrinthFilterCatalog> FilterCatalogAsync(CancellationToken token);
     Task<ModrinthProject> ProjectAsync(string id, CancellationToken token);
     Task<IReadOnlyList<ModrinthTeamMember>> MembersAsync(string projectId, CancellationToken token);
     Task<IReadOnlyList<ModrinthVersion>> VersionsAsync(string projectId, GameInstance? instance, CancellationToken token);
@@ -23,21 +24,39 @@ public sealed class ModrinthService(LauncherHttp http) : IModrinthService
 {
     public const string Api = "https://api.modrinth.com/v2/";
     private static readonly string[] Hosts = ["api.modrinth.com"];
-    public static string SearchPath(string query, bool packs, GameInstance? instance, int offset)
+    public static string SearchPath(string query, bool packs, GameInstance? instance, int offset, ModrinthSearchOptions? options = null)
     {
         if (query.Length > 200 || offset < 0) throw new ArgumentException("Некорректный запрос поиска.");
         var facets = new List<string[]> { new[] { "project_type:" + (packs ? "modpack" : "mod") } };
+        options ??= new();
+        if (!new[] { "relevance", "downloads", "updated", "newest", "follows" }.Contains(options.Sort) ||
+            !new[] { "", "fabric", "forge", "neoforge" }.Contains(options.Loader) ||
+            (options.Environment.Length > 0 && !SupportsClient(options.Environment)))
+            throw new ArgumentException("Неподдерживаемый фильтр Modrinth.");
+        static void ValidateFacet(string value)
+        {
+            if (value.Length > 64 || value.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('.' or '-' or '_')))
+                throw new ArgumentException("Некорректное значение фильтра Modrinth.");
+        }
+        ValidateFacet(options.Minecraft); ValidateFacet(options.Category);
+        if (packs)
+        {
+            if (options.Minecraft.Length > 0) facets.Add(["versions:" + options.Minecraft]);
+            if (options.Loader.Length > 0) facets.Add(["categories:" + options.Loader]);
+        }
         if (!packs)
         {
             if (instance is null || instance.Loader == ModLoader.Vanilla) throw new InvalidOperationException("Для модов создай сборку Fabric, Forge или NeoForge.");
             facets.Add(["versions:" + instance.VersionId]);
             facets.Add(["categories:" + instance.Loader.ToString().ToLowerInvariant()]);
         }
-        return "search?query=" + Uri.EscapeDataString(query) + "&facets=" + Uri.EscapeDataString(JsonSerializer.Serialize(facets)) + "&limit=20&offset=" + offset;
+        if (options.Category.Length > 0) facets.Add(["categories:" + options.Category]);
+        if (options.Environment.Length > 0) facets.Add(["environment:" + options.Environment]);
+        return "search?query=" + Uri.EscapeDataString(query) + "&facets=" + Uri.EscapeDataString(JsonSerializer.Serialize(facets)) + "&limit=20&offset=" + offset + "&index=" + options.Sort;
     }
-    public async Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token)
+    public async Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token, ModrinthSearchOptions? options = null)
     {
-        var result = await http.JsonAsync<ModrinthSearchResult>(Api + SearchPath(query, packs, instance, offset), Hosts, token).ConfigureAwait(false);
+        var result = await http.JsonAsync<ModrinthSearchResult>(Api + SearchPath(query, packs, instance, offset, options), Hosts, token).ConfigureAwait(false);
         if (result.Hits is null || result.Hits.Count > 100 || result.TotalHits < 0) throw new InvalidDataException("Неожиданный ответ поиска Modrinth.");
         foreach (var hit in result.Hits)
         {
@@ -47,12 +66,23 @@ public sealed class ModrinthService(LauncherHttp http) : IModrinthService
         }
         return result;
     }
+    public async Task<ModrinthFilterCatalog> FilterCatalogAsync(CancellationToken token)
+    {
+        var categories = http.JsonAsync<List<ModrinthCategory>>(Api + "tag/category", Hosts, token);
+        var versions = http.JsonAsync<List<ModrinthGameVersion>>(Api + "tag/game_version", Hosts, token);
+        await Task.WhenAll(categories, versions).ConfigureAwait(false);
+        if (categories.Result.Count > 1000 || versions.Result.Count > 10000 ||
+            categories.Result.Any(x => x is null || string.IsNullOrWhiteSpace(x.Name) || x.ProjectType is null) ||
+            versions.Result.Any(x => x is null || string.IsNullOrWhiteSpace(x.Version)))
+            throw new InvalidDataException("Неполный справочник фильтров Modrinth.");
+        return new(categories.Result, versions.Result.OrderByDescending(x => x.Date).ToArray());
+    }
     public async Task<ModrinthProject> ProjectAsync(string id, CancellationToken token)
     {
         ValidateId(id);
         var project = await http.JsonAsync<ModrinthProject>(Api + "project/" + id, Hosts, token).ConfigureAwait(false);
         if (project.Id != id || project.ProjectType is not ("mod" or "modpack") || project.Title is null || project.Description is null || project.Body is null ||
-            project.GameVersions is null || project.Loaders is null || project.Downloads < 0)
+            project.GameVersions is null || project.Loaders is null || project.Categories is null || project.Environment is null || project.Downloads < 0)
             throw new InvalidDataException("Неподдерживаемый тип или неполная metadata проекта Modrinth.");
         return project;
     }

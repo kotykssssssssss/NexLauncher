@@ -65,7 +65,7 @@ Quick CSS — небольшой CSS-подобный язык для внешн
 | `button` | Все кнопки |
 | `textbox`, `.input` | Поля ввода, включая журнал |
 | `combobox` | Выпадающие списки |
-| `list-item` | Строки списков сборок, управляемых модов и результатов Modrinth (`ListBoxItem`) |
+| `list-item` | Строки списков Avalonia (`ListBoxItem`); новые Modrinth cards используют `.project-card` |
 | `text` | Текстовые блоки |
 | `.card` | Карточки с содержимым |
 | `.primary`, `.button-primary` | Основные кнопки действий |
@@ -81,12 +81,17 @@ Quick CSS — небольшой CSS-подобный язык для внешн
 | `#instance-card` | Карточка выбранной сборки на странице игры |
 | `#account-panel` | Панель аккаунта в верхней части окна |
 | `#log-panel` | Карточка журнала запуска |
+| `#modrinth` | Панель всей рабочей области Modrinth |
+| `#modrinth-filters` | Карточка фильтров Modrinth |
+| `.project-card` | Кликабельные карточки каталога и управляемых модов (`Button`) |
+| `#project-header` | Карточка заголовка полной страницы проекта |
+| `#project-description` | Карточка полного описания проекта |
 
 Список расширяется в `Services/QuickCss/QuickCssSelectorCatalog.cs`. Синтаксический парсер отделён от этого списка: неизвестный, но синтаксически корректный селектор даёт замечание на этапе применения.
 
 Modrinth search/details и установка loaders используют тот же набор: `.card`,
 `button`, `.primary`, `.quiet`, `text`, `.caption`, `.muted`, `textbox`, `combobox`,
-`list-item`. Новые специальные selectors не требуются. Описание проекта рендерится
+а также пять специальных selectors из таблицы выше. Описание проекта рендерится
 нативными текстовыми блоками, а ссылки — `.quiet` кнопками. Код внутри описания
 имеет моноширинный шрифт; HTML проекта не может добавлять свои стили или selectors.
 
@@ -106,14 +111,14 @@ Modrinth search/details и установка loaders используют то�
 | `font-weight` | `normal` = 400, `bold` = 700, либо 100, 200, …, 900 | Все; действует на текст |
 | `font-family` | Одно имя установленного системного шрифта, например `"Segoe UI"` | Все; действует на текст и через наследование |
 | `opacity` | Число 0–1 | Все; прозрачность всего элемента вместе с детьми |
-| `padding` | 1–4 размера, каждый 0–200 | Все, кроме `#content` |
+| `padding` | 1–4 размера, каждый 0–200 | Все, кроме `#content`, `#modrinth` |
 | `margin` | 1–4 размера, каждый 0–200 | Все |
 | `background-image` | `url("images/background.png")` либо `none` | Все селекторы с фоном |
 | `background-size` | `cover`, `contain`, `stretch` | В том же правиле, где `background-image` |
 | `background-position` | `center`, `top`, `bottom`, `left`, `right` | В том же правиле, где `background-image` |
 | `background-opacity` | Число 0–1 | В том же правиле, где `background-image`; прозрачность только изображения |
 
-`#content` — обычная панель Avalonia: `padding`, `border-color`, `border-width` и `border-radius` для неё не поддерживаются. Текстовые селекторы (`text`, `.title`, `.muted`, `.text-muted`, `.caption`) поддерживают `padding`, но не свойства рамки. Все карточки, `#sidebar`, `#instance-card`, `#account-panel`, `#log-panel` являются панелями-рамками и поддерживают эти свойства.
+`#content` и `#modrinth` — обычные панели Avalonia: `padding`, `border-color`, `border-width` и `border-radius` для них не поддерживаются. Текстовые селекторы (`text`, `.title`, `.muted`, `.text-muted`, `.caption`) поддерживают `padding`, но не свойства рамки. Все карточки, `#sidebar`, `#instance-card`, `#account-panel`, `#log-panel`, `#modrinth-filters`, `#project-header`, `#project-description` являются панелями-рамками и поддерживают эти свойства. `.project-card` поддерживает свойства кнопок и `:hover` / `:disabled`.
 
 Для `padding`, `margin`, `border-width` порядок обычный CSS:
 

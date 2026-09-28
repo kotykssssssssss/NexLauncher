@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:NexLauncher"
         xmlns:vm="using:NexLauncher.ViewModels"
         xmlns:models="using:NexLauncher.Models"
         xmlns:views="using:NexLauncher.Views"
@@ -42,7 +43,7 @@
                 </StackPanel>
                 <StackPanel Grid.Row="3" Margin="12,0" Spacing="6">
                     <TextBlock Text="Твой мир. Твои сборки." FontSize="11" Classes="muted"/>
-                    <TextBlock Text="NexLauncher · 0.1" FontSize="11" Foreground="#78828D"/>
+                    <TextBlock Text="{x:Static local:BuildInfo.DisplayName}" FontSize="11" Foreground="#78828D"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -66,7 +67,10 @@
                     </StackPanel>
                 </Border>
             </Grid>
-            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Grid Grid.Row="1" IsVisible="{Binding IsModrinthPage}">
+                <views:ModrinthView DataContext="{Binding Catalog}"/>
+            </Grid>
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsModrinthPage}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="18" Margin="0,0,4,16">
                     <StackPanel IsVisible="{Binding IsPlayPage}" Spacing="22">
                         <StackPanel Spacing="8">
@@ -179,7 +183,6 @@
                         </Border>
                         <Button Content="Перейти к игре" Command="{Binding NavigateCommand}" CommandParameter="play" IsVisible="{Binding HasInstance}" HorizontalAlignment="Left"/>
                     </StackPanel>
-                    <StackPanel IsVisible="{Binding IsModrinthPage}"><views:ModrinthView DataContext="{Binding Catalog}"/></StackPanel>
                     <StackPanel IsVisible="{Binding IsSettingsPage}" Spacing="22">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Настройки" Classes="title"/>
@@ -270,19 +273,19 @@
                         </StackPanel>
                     </StackPanel>
                     <TextBlock Text="{Binding Notice}" IsVisible="{Binding HasNotice}" Foreground="#A6CFBB" TextWrapping="Wrap"/>
-                    <Border Classes="card qc-log-panel" IsVisible="{Binding ShowLog}">
-                        <StackPanel Spacing="10">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="Журнал запуска" FontWeight="Medium" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Content="Открыть файл" Classes="quiet" Command="{Binding OpenLogCommand}"/>
-                            </Grid>
-                            <TextBox Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
-                                     TextWrapping="Wrap" Height="180" FontFamily="Consolas, monospace" FontSize="11"/>
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </ScrollViewer>
             <StackPanel Grid.Row="2" Spacing="10" Margin="0,12,0,0">
+                <Border Classes="card qc-log-panel" IsVisible="{Binding ShowLog}">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Журнал запуска" FontWeight="Medium" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="Открыть файл" Classes="quiet" Command="{Binding OpenLogCommand}"/>
+                        </Grid>
+                        <TextBox Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
+                                 TextWrapping="Wrap" Height="180" FontFamily="Consolas, monospace" FontSize="11"/>
+                    </StackPanel>
+                </Border>
                 <Border Background="#3A262A" BorderBrush="#75414A" BorderThickness="1" CornerRadius="10" Padding="14" IsVisible="{Binding HasError}">
                     <StackPanel Spacing="8">
                         <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" MaxLines="4" TextTrimming="WordEllipsis" Foreground="#F2C9CE"/>

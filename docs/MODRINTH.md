@@ -1,8 +1,23 @@
 # Modrinth в NexLauncher
 
-**Modrinth** в sidebar ищет готовые modpacks. Для отдельных модов выбери Fabric,
-Forge или NeoForge сборку на странице игры и нажми **Моды**. Minecraft и loader
-подставляются автоматически. Vanilla не получает loader-specific JAR молча.
+**Modrinth** в sidebar открывает два независимых каталога: **Modpacks** и **Mods**.
+Modpacks создаёт новую сборку. В Mods выбери существующий Fabric, Forge или NeoForge
+instance в поле **Установить в**. Также доступен путь **Играть → Моды**.
+Minecraft и loader подставляются автоматически; Vanilla не получает loader-specific JAR.
+
+Каталог и страница проекта занимают всю рабочую область после sidebar с обычными
+отступами. В широком окне фильтры находятся слева; в узком — в раскрывающемся блоке
+над результатами. Карточки горизонтальные, прокручиваются внутри доступной высоты.
+Это отдельная страница, не popup и не ограниченная по ширине центральная панель.
+
+Фильтры Modpacks: Minecraft release version, Fabric/Forge/NeoForge, категория,
+окружение (все / только клиент / клиент и сервер / одиночная игра).
+В Mods Minecraft и loader закреплены за выбранным instance; доступны категория
+и окружение. Названия категорий приходят из `/tag/category`, версии Minecraft —
+из `/tag/game_version`. Сортировка: релевантность, загрузки, недавно обновлённые,
+новые проекты (`index` официального search API). Неподдерживаемые фильтры не показаны.
+Если справочник недоступен, поиск работает с имеющимися фильтрами; его можно обновить.
+Выбранные Minecraft/loader фильтры Modpacks также ограничивают версии на details.
 
 Поиск показывает иконку (если доступна), название, описание, автора из API,
 downloads и совместимость. Нажми любую часть карточки, включая название или
@@ -12,13 +27,17 @@ downloads и совместимость. Нажми любую часть кар
 
 ## Страница проекта
 
-Путь для мода: **Играть → Моды → поиск → карточка → версия → Проверить
-зависимости → Установить**. В списке установленных модов кнопка **Подробнее**
-открывает ту же страницу без повторного поиска. **К результатам** возвращает
-сохранённый список и запрос.
+Путь для мода: **Mods → instance → поиск → карточка → версия → Установить мод… →
+план dependencies → Подтвердить установку**. Вкладка **Установленные** показывает
+только управляемые NexLauncher моды. Их карточки открывают ту же страницу без поиска.
+**К результатам** сохраняет список, запрос, фильтры, сортировку, страницу и scroll.
+Mods и Modpacks имеют отдельные параметры поиска на время работы приложения;
+переключение сохраняет выбранный instance. После смены instance пагинация сбрасывается.
+Состояние поиска не записывается в settings при закрытии приложения.
 
 На странице доступны название, иконка, краткое и полное описание, тип проекта,
-downloads, license ID, все заявленные Minecraft versions и loaders. Версии Minecraft
+downloads, категории, даты публикации/обновления, окружение, license ID,
+все заявленные Minecraft versions и loaders. Версии Minecraft
 раскрываются отдельно, чтобы большой список не занимал весь экран. Author из
 search и публичные участники команды из `/project/{id}/members` подписаны отдельно.
 Если API сообщает organization ID, есть ссылка на организацию; её название не
@@ -67,8 +86,8 @@ protocols отвергаются. URL виден в tooltip, у полезных
 
 ## Моды и dependencies
 
-1. Выбери конкретную версию и нажми **Проверить зависимости**.
-2. Просмотри список, затем **Установить**. План пересчитывается перед записью.
+1. Выбери конкретную версию и нажми **Установить мод…** (либо **Обновить / сменить версию…**).
+2. Просмотри список, затем **Подтвердить установку**. План пересчитывается перед записью.
 3. Общий progress и кнопка отмены находятся в нижней части главного окна.
 
 Проверяется точный Minecraft, loader и client environment конкретной версии.
@@ -170,7 +189,9 @@ versions/libraries/runtime/assets/natives. Некоторые packs с собс�
 Общий `LauncherHttp` переиспользует HttpClient, не отправляет cookies или account
 credentials. Каждый запрос получает:
 
-    NexLauncher/0.2 (github.com/kotykssssssssss/NexLauncher)
+    NexLauncher/0.1.0-alpha (github.com/kotykssssssssss/NexLauncher)
+
+Номер берётся из assembly release metadata и обновляется вместе с версией приложения.
 
 Учитываются `X-Ratelimit-Remaining`, `X-Ratelimit-Reset`, `Retry-After`.
 GET получает не более 3 попыток на 429/5xx; долгий лимит предлагает повторить позже.
@@ -193,6 +214,7 @@ HTTP ошибки/невалидный JSON показываются корот�
 
 - [API, User-Agent, IDs и rate limits](https://docs.modrinth.com/api/)
 - [Search facets и pagination](https://docs.modrinth.com/api/operations/searchprojects/)
+- [Category tags](https://docs.modrinth.com/api/operations/categorylist/) и [Minecraft version tags](https://docs.modrinth.com/api/operations/versionlist/) — дополнительно сверены 28 сентября 2026
 - [Version, dependencies, environment, hashes](https://docs.modrinth.com/api/operations/getversion/)
 - [Project metadata и лицензия](https://docs.modrinth.com/api/operations/getproject/)
 - [Публичные участники команды проекта](https://docs.modrinth.com/api/operations/getprojectteammembers/)

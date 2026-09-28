@@ -1,0 +1,19 @@
+NexLauncher v0.1.0-alpha - Windows 11 x64
+
+This is an unsigned alpha. Windows may show a SmartScreen reputation warning.
+Check the download source and SHA256. No Windows security setting needs to be disabled.
+
+Setup installs for the current Windows user, without administrator privileges.
+.NET is included. Visual Studio, the .NET SDK and a separate .NET Runtime are not required.
+If Microsoft Edge WebView2 Runtime is missing, Setup runs Microsoft's signed
+Evergreen bootstrapper. That step needs Internet access and installs Microsoft's
+separately serviced runtime. Local accounts do not need WebView2.
+
+Application: %LOCALAPPDATA%\Programs\NexLauncher
+User data:   %LOCALAPPDATA%\NexLauncher
+Custom instance locations remain unchanged. Do not install over a game folder.
+Updates, reinstall and uninstall preserve user data. Back up important worlds.
+
+Minecraft, Java, loaders, mods and modpacks are downloaded when requested;
+they are not included in this installer. Minecraft/Microsoft service terms apply.
+Local accounts cannot join servers requiring Microsoft authentication.

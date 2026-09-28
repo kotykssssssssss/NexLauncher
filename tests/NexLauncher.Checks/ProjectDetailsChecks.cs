@@ -124,8 +124,8 @@ internal static class ProjectDetailsChecks
         check(catalog.IsDetails && !catalog.IsBrowsing && catalog.Details?.Project.Id == main.ProjectId && catalog.Versions.Count == 1, "clicking a result opens dedicated project details with compatible version chooser");
         check(catalog.Details!.Description.Blocks.Count > 1 && catalog.Details.Credits.Contains("Fixture Author"), "details contains complete native description and API team attribution");
         var view = new ModrinthView { DataContext = catalog };
-        var scroll = new ScrollViewer { Content = view, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        var window = new Window { Classes = { "qc-app" }, Content = scroll, Width = 880, Height = 860, Title = "Details fixture" }; window.Show(); Dispatcher.UIThread.RunJobs();
+        var window = new Window { Classes = { "qc-app" }, Content = view, Width = 880, Height = 860, Title = "Details fixture" }; window.Show(); Dispatcher.UIThread.RunJobs();
+        var scroll = view.FindControl<ScrollViewer>("DetailsScroll")!;
         using (var frame = window.CaptureRenderedFrame()) { check(frame is not null, "project details renders with existing NexLauncher theme"); frame!.Save(Path.Combine(root, "project-details.png"), PngBitmapEncoderOptions.Default); }
         var descriptionControl = view.GetVisualDescendants().OfType<ProjectDescriptionView>().Single();
         var nativeText = descriptionControl.Children.OfType<TextBlock>().ToArray();
@@ -140,13 +140,15 @@ internal static class ProjectDetailsChecks
         using (var frame = window.CaptureRenderedFrame()) frame!.Save(Path.Combine(root, "project-description-themed.png"), PngBitmapEncoderOptions.Default);
         window.Close();
 
-        await catalog.PlanCommand.ExecuteAsync(null);
+        await catalog.PrimaryActionCommand.ExecuteAsync(null);
         check(catalog.InstallCommand.CanExecute(null) && catalog.PlanText.Contains("require1"), "existing-instance mod install requires reviewed dependency plan");
+        check(catalog.InstallLabel == "Подтвердить установку", "contextual primary action exposes confirmation only after dependency review");
         main.Loaders = ["forge"]; await catalog.InstallCommand.ExecuteAsync(null);
         check(errors.LastOrDefault() is InvalidOperationException && !File.Exists(Path.Combine(game, "mods", main.Files[0].Filename)), "concrete version compatibility is rechecked at installation after details and planning");
-        main.Loaders = ["fabric"]; errors.Clear(); await catalog.InstallCommand.ExecuteAsync(null);
+        main.Loaders = ["fabric"]; errors.Clear(); await catalog.PrimaryActionCommand.ExecuteAsync(null);
         check(errors.Count == 0 && catalog.Installed.Count == 2 && catalog.Details.InstallationStatus.Contains("version1"), "details installs individual mod and required dependency into existing instance and refreshes installed version");
         check(await File.ReadAllTextAsync(Path.Combine(game, "mods", "manual.jar")) == "keep", "details installation leaves manual JAR untouched");
+        check(catalog.IsSelectedInstalled && !catalog.PrimaryActionCommand.CanExecute(null), "installed selected version is labelled and cannot be installed again by primary action");
         var next = MakeVersion("project1", "version2"); next.DatePublished = main.DatePublished.AddDays(1); next.Dependencies.Add(main.Dependencies[0]); api.Add(next); transport.Files[next.Files[0].Url] = Jar;
         await catalog.RetryDetailsCommand.ExecuteAsync(null);
         check(catalog.Details!.InstallationStatus.Contains("Доступно обновление: version2") && catalog.SelectedVersion?.Id == next.Id, "details update availability compares newer compatible version against persisted installed version");
@@ -208,7 +210,8 @@ internal static class ProjectDetailsChecks
         public bool FailMembers;
         public void Add(params ModrinthVersion[] versions)
         { foreach (var v in versions) { Versions[v.Id] = v; Projects[v.ProjectId] = new() { Id = v.ProjectId, Title = v.ProjectId, ProjectType = "mod", Body = Body, Description = "A useful project for your Minecraft instance", ClientSide = "required", GameVersions = ["1.21.1"], Loaders = ["fabric"], Downloads = 12345, License = new() { Id = "MIT" }, WikiUrl = "https://example.org/wiki" }; } }
-        public Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token)
+        public Task<ModrinthFilterCatalog> FilterCatalogAsync(CancellationToken token) => Task.FromResult(new ModrinthFilterCatalog([], []));
+        public Task<ModrinthSearchResult> SearchAsync(string query, bool packs, GameInstance? instance, int offset, CancellationToken token, ModrinthSearchOptions? options = null)
         { token.ThrowIfCancellationRequested(); var hits = Projects.Values.Where(x => (x.ProjectType == "modpack") == packs).Select(x => new ModrinthHit { ProjectId = x.Id, Title = x.Title, Author = "Fixture Author", ProjectType = x.ProjectType }).ToList(); return Task.FromResult(new ModrinthSearchResult { Hits = hits, TotalHits = hits.Count }); }
         public Task<ModrinthProject> ProjectAsync(string id, CancellationToken token) => ProjectOverride?.Invoke(id, token) ?? Task.FromResult(Projects[id]);
         public Task<IReadOnlyList<ModrinthTeamMember>> MembersAsync(string projectId, CancellationToken token) => FailMembers ? Task.FromException<IReadOnlyList<ModrinthTeamMember>>(new IOException("Team unavailable")) : Task.FromResult<IReadOnlyList<ModrinthTeamMember>>([new() { User = new() { Username = "fixture", Name = "Fixture Author" }, Role = "Owner" }]);

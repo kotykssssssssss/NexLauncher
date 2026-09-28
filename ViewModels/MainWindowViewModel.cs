@@ -63,7 +63,7 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsInstancesPage => CurrentPage == "instances";
     public bool IsSettingsPage => CurrentPage == "settings";
     public bool IsModrinthPage => CurrentPage is "modrinth" or "mods";
-    public bool IsPacksPage => CurrentPage == "modrinth";
+    public bool IsPacksPage => IsModrinthPage;
     public bool CanOpenMods => SelectedInstance is { Loader: not ModLoader.Vanilla };
     public ModrinthViewModel Catalog { get; }
     public bool HasInstance => SelectedInstance is not null;
@@ -118,6 +118,10 @@ public partial class MainWindowViewModel : ObservableObject
         _log = new LauncherLog(store.DataDirectory);
         Catalog = new ModrinthViewModel(modrinth ?? new ModrinthService(LauncherHttp.Shared), LauncherHttp.Shared, minecraft,
             RunOperationAsync, CreateProgress, () => IsEditable, () => InstancesDirectory, PublishPackAsync, AppendLog);
+        Instances.CollectionChanged += (_, _) =>
+        {
+            if (IsModrinthPage) Catalog.ConfigureInstances(Instances, SelectedInstance, instance => instance.GameDirectory);
+        };
         NavigateCommand = new RelayCommand<string>(page =>
         {
             if (page is "play" or "instances" or "settings" or "modrinth" or "mods") CurrentPage = page;
@@ -170,7 +174,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (Catalog is not null)
         {
-            if (value is "modrinth" or "mods") Catalog.Open(value == "modrinth", SelectedInstance, GameDirectory);
+            if (value is "modrinth" or "mods")
+            {
+                Catalog.ConfigureInstances(Instances, SelectedInstance, instance => instance.GameDirectory);
+                if (value == "mods") Catalog.Open(false, SelectedInstance, GameDirectory);
+                else Catalog.ResumeBrowser();
+            }
             else Catalog.Deactivate();
         }
         RefreshState();
@@ -181,7 +190,7 @@ public partial class MainWindowViewModel : ObservableObject
         MemoryGb = (value?.MemoryMb ?? 4096) / 1024;
         JavaPath = value?.JavaPath ?? "";
         _loadingSelection = false;
-        if (CurrentPage == "mods") Catalog?.Open(false, value, GameDirectory);
+        if (CurrentPage == "mods" && Catalog?.IsMods == true) Catalog.Open(false, value, GameDirectory);
         StatusText = value is null ? "Выбери версию и создай свою первую сборку." :
             _minecraft.IsInstalled(value) ? "Сборка готова. Можно запускать." : "Файлы игры ещё не установлены.";
         if (value is not null)

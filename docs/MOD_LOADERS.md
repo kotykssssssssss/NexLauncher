@@ -80,6 +80,11 @@ NeoForge 21.1.172 на Minecraft 1.21.1, проверяет success marker и п
 Второй вариант скачивает игру и запускает официальные installers в `.artifacts/loader-smoke`.
 Повторный запуск проверяет repair существующих тестовых установок.
 
+Для release 0.1.0-alpha дополнительно выполнен реальный startup/close Minecraft
+1.21.1 с каждым из трёх loaders и Fabric API, установленным через Modrinth.
+Миры не создавались; границы этих проверок и evidence — в
+[RELEASE_VALIDATION.md](RELEASE_VALIDATION.md).
+
 ## Официальные источники, проверенные 27 сентября 2026
 
 - [CmlLib mod loader installers](https://cmllib.github.io/CmlLib.Core-wiki/en/cmllib.core/installer/)

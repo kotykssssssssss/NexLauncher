@@ -3,6 +3,14 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
+    <Version>0.1.0-alpha</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Product>NexLauncher</Product>
+    <Description>Independent Minecraft Java Edition launcher for Windows</Description>
+    <Authors>kotyksssssssss</Authors>
+    <Copyright>Copyright (c) 2026 kotyksssssssss</Copyright>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;.artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
@@ -21,5 +29,13 @@
     <PackageReference Include="CmlLib.Core.Auth.Microsoft" Version="3.3.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
   </ItemGroup>
-  <ItemGroup><Content Include="Assets/quickcss.example.css" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/quickcss.example.css" LogicalName="NexLauncher.QuickCssExample" />
+  </ItemGroup>
+  <!-- Native NuGet packages carry very large PDBs even with DebugType=None. -->
+  <Target Name="ExcludePublishSymbols" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 </Project>

@@ -1,129 +1,208 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models" xmlns:views="using:NexLauncher.Views"
              x:Class="NexLauncher.Views.ModrinthView" x:DataType="vm:ModrinthViewModel" x:CompileBindings="True">
-    <StackPanel Spacing="16">
-        <TextBlock x:Name="PageHeading" Text="Modrinth" Classes="title"/>
-        <TextBlock Text="{Binding Context}" Classes="muted" TextWrapping="Wrap"/>
-        <Button Content="Проекты предоставлены Modrinth · открыть сайт" Classes="quiet" Command="{Binding OpenModrinthCommand}" HorizontalAlignment="Left"/>
-        <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#EDB2AA" TextWrapping="Wrap"/>
-        <TextBlock Text="{Binding Message}" Classes="caption" TextWrapping="Wrap"/>
-        <StackPanel Spacing="16" IsVisible="{Binding IsBrowsing}">
-            <Border Classes="card" IsVisible="{Binding IsMods}">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Моды этой сборки" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock Text="Здесь показаны моды, установленные отдельно через NexLauncher. Ручные JAR и файлы modpack остаются в папке mods." Classes="caption" TextWrapping="Wrap"/>
-                    <TextBlock Text="Управляемых модов пока нет. Найди первый мод ниже." IsVisible="{Binding HasNoInstalled}" Classes="caption" TextWrapping="Wrap"/>
-                    <ListBox ItemsSource="{Binding Installed}" SelectedItem="{Binding SelectedInstalled}" MaxHeight="150" IsEnabled="{Binding IsEditable}">
-                        <ListBox.ItemTemplate><DataTemplate x:DataType="models:InstalledMod"><TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap"/></DataTemplate></ListBox.ItemTemplate>
-                    </ListBox>
-                    <WrapPanel>
-                        <Button Content="Подробнее" Command="{Binding ShowInstalledCommand}" Margin="0,0,8,8"/>
-                        <Button Content="Обновить список" Command="{Binding RefreshInstalledCommand}" Margin="0,0,8,8"/>
-                        <Button Content="Проверить обновление" Command="{Binding CheckUpdateCommand}" Margin="0,0,8,8"/>
-                        <Button Content="Удалить" Command="{Binding RemoveCommand}" Margin="0,0,0,8"/>
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-            <TextBlock Text="{Binding SearchTitle}" FontSize="18" FontWeight="SemiBold"/>
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBox Text="{Binding Query}" PlaceholderText="Поиск в Modrinth…" MaxLength="200" IsEnabled="{Binding IsEditable}"/>
-                <Button Grid.Column="1" Content="Найти" Command="{Binding SearchCommand}" Margin="8,0,0,0"/>
+
+    <Grid Classes="qc-modrinth" RowDefinitions="Auto,Auto,Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Modrinth" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Button Content="Modpacks" Classes="nav" Classes.active="{Binding IsPacks}" Command="{Binding PacksModeCommand}"/>
+                <Button Content="Mods" Classes="nav" Classes.active="{Binding IsMods}" Command="{Binding ModsModeCommand}"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="Modrinth ↗" Classes="quiet" Command="{Binding OpenModrinthCommand}" ToolTip.Tip="Проекты предоставлены Modrinth · официальный сайт"/>
+        </Grid>
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="Готовые сборки · каждый modpack устанавливается как новый instance" IsVisible="{Binding IsPacks}" Classes="caption" TextWrapping="Wrap"/>
+            <StackPanel IsVisible="{Binding IsMods}" Spacing="8">
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Установить в" Classes="caption" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding TargetInstances}" SelectedItem="{Binding TargetInstance}" PlaceholderText="Выбери Fabric / Forge / NeoForge сборку" IsEnabled="{Binding IsEditable}">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="models:GameInstance"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <TextBlock Text="{Binding Context}" Classes="caption" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,0,0,8">
+            <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#EDB2AA" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Text="{Binding Message}" IsVisible="{Binding HasMessage}" Classes="caption" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <Grid Grid.Row="3" IsVisible="{Binding IsBrowsing}" RowDefinitions="Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+                <TextBox Text="{Binding Query}" PlaceholderText="Поиск проектов…" MaxLength="200" IsEnabled="{Binding IsEditable}"/>
+                <Button Grid.Column="1" Content="Найти" Command="{Binding SearchCommand}" Margin="8,0"/>
+                <ComboBox Grid.Column="2" Width="190" ItemsSource="{x:Static vm:ModrinthFiltersViewModel.Sorts}" SelectedItem="{Binding Filters.Sort}" IsEnabled="{Binding IsEditable}" ToolTip.Tip="Сортировка результатов"/>
             </Grid>
-            <StackPanel IsVisible="{Binding IsBusy}" Spacing="8">
-                <ProgressBar IsIndeterminate="True"/>
-                <Button Content="Отменить поиск" Command="{Binding CancelRequestCommand}" HorizontalAlignment="Left"/>
+            <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsMods}">
+                    <Button Content="Каталог" Classes="nav" Classes.active="{Binding ShowSearchResults}" Command="{Binding BrowseModsCommand}" Padding="12,6" MinHeight="32"/>
+                    <Button Content="{Binding InstalledLabel}" Classes="nav" Classes.active="{Binding ShowInstalled}" Command="{Binding InstalledModsCommand}" Padding="12,6" MinHeight="32"/>
+                </StackPanel>
+                <Grid IsVisible="{Binding IsBusy}" ColumnDefinitions="*,Auto">
+                    <ProgressBar IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Grid.Column="1" Content="Отменить поиск" Classes="quiet" Command="{Binding CancelRequestCommand}"/>
+                </Grid>
             </StackPanel>
-            <TextBlock Text="Ничего не найдено. Измени запрос или проверь выбранную сборку." IsVisible="{Binding HasNoResults}" Classes="caption" TextWrapping="Wrap"/>
-            <ListBox ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}" MaxHeight="420" IsEnabled="{Binding IsEditable}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ModrinthResultViewModel">
-                        <Grid ColumnDefinitions="48,*" Margin="4,8" Background="Transparent">
-                            <Image Source="{Binding Icon}" Width="40" Height="40" VerticalAlignment="Top"/>
-                            <StackPanel Grid.Column="1" Spacing="4">
-                                <TextBlock Text="{Binding Hit.Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding Hit.Description}" Classes="caption" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding Hit.Credit}" Classes="caption"/>
-                                <TextBlock Text="{Binding Hit.Compatibility}" Classes="caption" TextWrapping="Wrap"/>
-                                <TextBlock Text="Открыть описание и версии →" Classes="caption"/>
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <WrapPanel>
-                <Button Content="Предыдущая страница" Command="{Binding PreviousCommand}" Margin="0,0,8,8"/>
-                <Button Content="Следующая страница" Command="{Binding NextCommand}" Margin="0,0,8,8"/>
-            </WrapPanel>
-        </StackPanel>
-        <StackPanel Spacing="16" IsVisible="{Binding IsDetails}">
-            <WrapPanel>
-                <Button Content="← К результатам" Command="{Binding BackCommand}" Margin="0,0,8,0"/>
-                <Button Content="Обновить сведения" Command="{Binding RetryDetailsCommand}"/>
-            </WrapPanel>
-            <StackPanel Spacing="8" IsVisible="{Binding IsLoadingDetails}">
-                <TextBlock Text="Получаем проект и совместимые версии…" Classes="caption"/>
-                <ProgressBar IsIndeterminate="True"/>
-                <Button Content="Отменить загрузку" Command="{Binding CancelRequestCommand}" HorizontalAlignment="Left"/>
-            </StackPanel>
-            <StackPanel Spacing="16" IsVisible="{Binding HasDetails}">
-                <Border Classes="card">
-                    <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="12">
-                        <Grid ColumnDefinitions="64,*">
-                            <Image Source="{Binding Icon}" Width="48" Height="48" VerticalAlignment="Top"/>
-                            <StackPanel Grid.Column="1" Spacing="6">
-                                <TextBlock Text="{Binding Project.Title}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding Statistics}" Classes="caption" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock Text="{Binding Project.Description}" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding Credits}" Classes="caption" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding Loaders}" Classes="caption" TextWrapping="Wrap"/>
-                        <Expander Header="Поддерживаемые версии Minecraft" HorizontalAlignment="Stretch">
-                            <TextBlock Text="{Binding MinecraftVersions}" Classes="caption" TextWrapping="Wrap"/>
+            <Grid Grid.Row="2" x:Name="BrowserLayout" ColumnDefinitions="256,*" RowDefinitions="Auto,*">
+                <Border x:Name="FiltersPanel" Grid.Row="1" Classes="card qc-modrinth-filters" Padding="0" Margin="0,0,16,0" IsVisible="{Binding ShowSearchResults}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalContentAlignment="Top">
+                        <Expander x:Name="FiltersExpander" Header="Фильтры" IsExpanded="True" HorizontalAlignment="Stretch" VerticalAlignment="Top" HorizontalContentAlignment="Stretch" Padding="0">
+                            <WrapPanel x:Name="FilterFields" Orientation="Horizontal" Margin="10,0">
+                                <StackPanel Width="168" Margin="0,8,8,8" Spacing="6" IsVisible="{Binding IsPacks}">
+                                    <TextBlock Text="Minecraft" Classes="caption"/>
+                                    <ComboBox ItemsSource="{Binding Filters.MinecraftVersions}" SelectedItem="{Binding Filters.Minecraft}" IsEnabled="{Binding IsEditable}"/>
+                                </StackPanel>
+                                <StackPanel Width="168" Margin="0,8,8,8" Spacing="6" IsVisible="{Binding IsPacks}">
+                                    <TextBlock Text="Загрузчик" Classes="caption"/>
+                                    <ComboBox ItemsSource="{x:Static vm:ModrinthFiltersViewModel.Loaders}" SelectedItem="{Binding Filters.Loader}" IsEnabled="{Binding IsEditable}"/>
+                                </StackPanel>
+                                <StackPanel Width="168" Margin="0,8,8,8" Spacing="6">
+                                    <TextBlock Text="Категория" Classes="caption"/>
+                                    <ComboBox ItemsSource="{Binding Filters.Categories}" SelectedItem="{Binding Filters.Category}" IsEnabled="{Binding IsEditable}"/>
+                                </StackPanel>
+                                <StackPanel Width="168" Margin="0,8,8,8" Spacing="6">
+                                    <TextBlock Text="Окружение" Classes="caption"/>
+                                    <ComboBox ItemsSource="{x:Static vm:ModrinthFiltersViewModel.Environments}" SelectedItem="{Binding Filters.Environment}" IsEnabled="{Binding IsEditable}"/>
+                                </StackPanel>
+                                <StackPanel Width="168" Margin="0,8,8,8" Spacing="6">
+                                    <Button Content="Сбросить фильтры" Classes="quiet" Command="{Binding ResetFiltersCommand}"/>
+                                    <TextBlock Text="{Binding FiltersMessage}" Classes="caption" TextWrapping="Wrap"/>
+                                    <Button Content="Обновить фильтры" Classes="quiet" Command="{Binding RetryFiltersCommand}"/>
+                                </StackPanel>
+                            </WrapPanel>
                         </Expander>
-                        <TextBlock Text="{Binding License}" Classes="caption" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding InstallationStatus}" FontWeight="Medium" TextWrapping="Wrap"/>
-                    </StackPanel>
+                    </ScrollViewer>
                 </Border>
-                <Border Classes="card">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Версия для установки" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="Показаны версии для Minecraft и загрузчика этой сборки, доступные на клиенте." IsVisible="{Binding IsMods}" Classes="caption" TextWrapping="Wrap"/>
-                        <TextBlock Text="Совместимых клиентских версий не найдено." IsVisible="{Binding HasNoVersions}" Classes="caption"/>
-                        <ComboBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" PlaceholderText="Выбери версию" IsEnabled="{Binding IsEditable}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="models:ModrinthVersion"><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="580"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <StackPanel IsVisible="{Binding IsPacks}" Spacing="8" IsEnabled="{Binding IsEditable}">
-                            <TextBlock Text="Название новой сборки" Classes="caption"/>
-                            <TextBox Text="{Binding PackName}" MaxLength="60"/>
-                            <CheckBox Content="Установить также все optional-файлы modpack" IsChecked="{Binding IncludeOptionalPackFiles}"/>
-                            <TextBlock Text="Папка — выбранная в настройках. Установка создаст новую независимую сборку. Quilt пока не поддерживается." Classes="caption" TextWrapping="Wrap"/>
+                <Grid Grid.Row="1" Grid.Column="1">
+                    <ScrollViewer x:Name="ResultsScroll" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding ShowSearchResults}">
+                        <StackPanel>
+                            <TextBlock Text="Создай сборку Fabric, Forge или NeoForge в разделе «Сборки», затем выбери её выше. Vanilla не поддерживает моды." IsVisible="{Binding NeedsInstance}" Classes="muted" TextWrapping="Wrap" Margin="16"/>
+                            <StackPanel IsVisible="{Binding HasNoResults}" Margin="20" Spacing="8">
+                                <TextBlock Text="Проекты не найдены" FontSize="20" FontWeight="SemiBold"/>
+                                <TextBlock Text="Попробуй другой запрос или сбрось фильтры." Classes="caption" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Content="Повторить поиск" IsVisible="{Binding HasError}" Command="{Binding SearchCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+                            <ItemsControl x:Name="ResultCards" ItemsSource="{Binding Results}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ModrinthResultViewModel">
+                                        <Button Classes="project-card qc-project-card" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenProjectCommand}" CommandParameter="{Binding}">
+                                            <Grid ColumnDefinitions="64,*">
+                                                <Border Width="52" Height="52" CornerRadius="10" Background="#30363B" ClipToBounds="True" VerticalAlignment="Top">
+                                                    <Image Source="{Binding Icon}" Stretch="UniformToFill"/>
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="5">
+                                                    <TextBlock Text="{Binding Hit.Title}" FontSize="18" FontWeight="SemiBold" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Hit.Credit}" Classes="caption" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Hit.Description}" Classes="muted" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Hit.Tags}" Classes="caption" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Hit.Compatibility}" Classes="caption" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                                        <TextBlock Text="{Binding Hit.Updated}" Classes="caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding InstalledState}" Foreground="{DynamicResource NxAccentBrush}" FontSize="12" MaxWidth="260" TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
-                        <TextBlock Text="{Binding PlanText}" IsVisible="{Binding HasPlan}" Classes="caption" TextWrapping="Wrap"/>
-                        <WrapPanel>
-                            <Button Content="Проверить зависимости" Command="{Binding PlanCommand}" IsVisible="{Binding IsMods}" Margin="0,0,8,8"/>
-                            <Button Content="Установить" Classes="primary" Command="{Binding InstallCommand}" Margin="0,0,0,8"/>
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-                <Border Classes="card">
-                    <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="12">
-                        <TextBlock Text="О проекте" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding DescriptionNotice}" IsVisible="{Binding HasDescriptionNotice}" Classes="caption" TextWrapping="Wrap"/>
-                        <views:ProjectDescriptionView Document="{Binding Description}" OpenLinkCommand="{Binding OpenLinkCommand}"/>
-                        <TextBlock Text="Ссылки проекта · открываются в браузере" Classes="caption"/>
-                        <ItemsControl ItemsSource="{Binding Links}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ProjectLinkViewModel">
-                                    <Button Classes="quiet" Command="{Binding Command}" HorizontalAlignment="Left" Margin="0,2">
-                                        <TextBlock Text="{Binding DisplayLabel}" TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding ShowInstalled}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Установленные через NexLauncher моды. Ручные JAR и файлы modpack не считаются управляемыми и остаются в папке mods." Classes="caption" TextWrapping="Wrap"/>
+                            <Button Content="Обновить список" Command="{Binding RefreshInstalledCommand}" HorizontalAlignment="Left"/>
+                            <TextBlock Text="Управляемых модов пока нет. Открой каталог, чтобы найти первый мод." IsVisible="{Binding HasNoInstalled}" Classes="muted" TextWrapping="Wrap"/>
+                            <ItemsControl ItemsSource="{Binding Installed}">
+                                <ItemsControl.ItemTemplate><DataTemplate x:DataType="models:InstalledMod">
+                                    <Button Classes="project-card qc-project-card" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenInstalledProjectCommand}" CommandParameter="{Binding}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="Версии, обновление и удаление →" Classes="caption"/>
+                                        </StackPanel>
                                     </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0" IsVisible="{Binding ShowSearchResults}">
+                <TextBlock Text="{Binding PageLabel}" Classes="caption" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="← Назад" Command="{Binding PreviousCommand}" Margin="8,0"/>
+                <Button Grid.Column="2" Content="Далее →" Command="{Binding NextCommand}"/>
+            </Grid>
+        </Grid>
+        <Grid Grid.Row="3" IsVisible="{Binding IsDetails}" RowDefinitions="Auto,*">
+            <WrapPanel Margin="0,0,0,12">
+                <Button Content="← К результатам" Command="{Binding BackCommand}" Margin="0,0,8,0"/>
+                <Button Content="Обновить сведения" Classes="quiet" Command="{Binding RetryDetailsCommand}"/>
+            </WrapPanel>
+            <ScrollViewer x:Name="DetailsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16">
+                    <StackPanel IsVisible="{Binding IsLoadingDetails}" Spacing="8">
+                        <ProgressBar IsIndeterminate="True"/>
+                        <TextBlock Text="Получаем описание и совместимые версии…" Classes="caption"/>
+                        <Button Content="Отменить загрузку" Command="{Binding CancelRequestCommand}" HorizontalAlignment="Left"/>
                     </StackPanel>
-                </Border>
-            </StackPanel>
-        </StackPanel>
-    </StackPanel>
+                    <StackPanel IsVisible="{Binding HasDetails}" Spacing="16">
+                        <Border Classes="card qc-project-header" Padding="20">
+                            <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="8">
+                                <Grid ColumnDefinitions="96,*">
+                                    <Image Source="{Binding Icon}" Width="80" Height="80" VerticalAlignment="Top"/>
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <TextBlock Text="{Binding Project.Title}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Credits}" Classes="caption" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Statistics}" Classes="caption" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="{Binding Project.Description}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Categories}" Classes="caption" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Dates}" Classes="caption" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding InstallationStatus}" FontWeight="Medium" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Grid x:Name="DetailsLayout" ColumnDefinitions="*,320" RowDefinitions="Auto,Auto">
+                            <Border x:Name="DetailsActions" Grid.Column="1" Classes="card" Padding="20" Margin="16,0,0,0" VerticalAlignment="Top">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Версия и установка" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Context}" Classes="caption" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Совместимых клиентских версий нет." IsVisible="{Binding HasNoVersions}" Classes="caption" TextWrapping="Wrap"/>
+                                    <ComboBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" PlaceholderText="Выбери версию" IsEnabled="{Binding IsEditable}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="models:ModrinthVersion"><TextBlock Text="{Binding VersionNumber}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <TextBlock Text="{Binding VersionSummary}" Classes="caption" TextWrapping="Wrap"/>
+                                    <StackPanel IsVisible="{Binding IsPacks}" Spacing="8" IsEnabled="{Binding IsEditable}">
+                                        <TextBlock Text="Название новой сборки" Classes="caption"/>
+                                        <TextBox Text="{Binding PackName}" MaxLength="60"/>
+                                        <CheckBox Content="Optional-файлы modpack" IsChecked="{Binding IncludeOptionalPackFiles}"/>
+                                        <TextBlock Text="Новый instance в выбранной папке сборок. Текущая игра не изменится." Classes="caption" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding PlanText}" IsVisible="{Binding HasPlan}" Classes="caption" TextWrapping="Wrap"/>
+                                    <Button Classes="primary" Command="{Binding PrimaryActionCommand}" HorizontalAlignment="Stretch"><TextBlock Text="{Binding InstallLabel}" TextWrapping="Wrap" TextAlignment="Center"/></Button>
+                                    <Button Content="Удалить управляемый мод" Classes="quiet" Command="{Binding RemoveProjectCommand}" IsVisible="{Binding IsProjectInstalled}"/>
+                                    <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="8">
+                                        <TextBlock Text="{Binding Loaders}" Classes="caption" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Environment}" Classes="caption" TextWrapping="Wrap"/>
+                                        <Expander Header="Версии Minecraft" HorizontalAlignment="Stretch"><TextBlock Text="{Binding MinecraftVersions}" Classes="caption" TextWrapping="Wrap"/></Expander>
+                                        <TextBlock Text="{Binding License}" Classes="caption" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{Binding Links}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:ProjectLinkViewModel">
+                                            <Button Classes="quiet" Command="{Binding Command}"><TextBlock Text="{Binding DisplayLabel}" TextWrapping="Wrap"/></Button>
+                                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="DetailsDescription" Classes="card qc-project-description" Padding="24" VerticalAlignment="Top">
+                                <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="16">
+                                    <TextBlock Text="Описание" FontSize="20" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding DescriptionNotice}" IsVisible="{Binding HasDescriptionNotice}" Classes="caption" TextWrapping="Wrap"/>
+                                    <views:ProjectDescriptionView Document="{Binding Description}" OpenLinkCommand="{Binding OpenLinkCommand}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

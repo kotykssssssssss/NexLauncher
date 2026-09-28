@@ -59,3 +59,20 @@ Java/RAM и выбранная сборка сохраняются. Формат
   после закрытия launcher можно сохранить журнал и удалить только этот staging вручную.
 
 Журнал восстановления отдельных модов описан в [MODRINTH.md](MODRINTH.md).
+
+## Installer, Portable и обновления
+
+Installer ставит binaries в `%LOCALAPPDATA%\Programs\NexLauncher` для текущего
+пользователя без администратора. Данные по-прежнему находятся в
+`%LOCALAPPDATA%\NexLauncher`; custom instances остаются на своих дисках.
+Installer не разрешает выбрать стандартную папку данных как installation directory.
+Не выбирай папку существующей игры для установки приложения.
+
+Portable использует ту же папку данных: это запуск без установки, а не изолированный
+USB-профиль. Не запускай несколько копий NexLauncher одновременно. Перенос одного EXE
+не переносит сборки или аккаунты; DPAPI vault привязан к текущему Windows-пользователю.
+
+Setup/uninstall владеют только файлами дистрибутива, ярлыками и uninstall registration.
+Настройки, аккаунты, CSS и игровые файлы при update/reinstall/uninstall сохраняются.
+Portable обновляется заменой application files после закрытия launcher.
+Форматы settings/accounts в релизном этапе не менялись. Подробнее: [RELEASE.md](RELEASE.md).

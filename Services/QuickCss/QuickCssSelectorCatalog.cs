@@ -37,7 +37,12 @@ public static class QuickCssSelectorCatalog
         ["#play-button"] = new(typeof(Button), "qc-play-button"),
         ["#instance-card"] = new(typeof(Border), "qc-instance-card"),
         ["#account-panel"] = new(typeof(Border), "qc-account-panel"),
-        ["#log-panel"] = new(typeof(Border), "qc-log-panel")
+        ["#log-panel"] = new(typeof(Border), "qc-log-panel"),
+        ["#modrinth"] = new(typeof(Grid), "qc-modrinth"),
+        ["#modrinth-filters"] = new(typeof(Border), "qc-modrinth-filters"),
+        [".project-card"] = new(typeof(Button), "qc-project-card"),
+        ["#project-header"] = new(typeof(Border), "qc-project-header"),
+        ["#project-description"] = new(typeof(Border), "qc-project-description")
     };
 
     public static IEnumerable<string> Selectors => Targets.Keys;

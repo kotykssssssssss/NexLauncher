@@ -25,6 +25,9 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject, IDisposa
     public string MinecraftVersions => "Minecraft: " + string.Join(", ", Project.GameVersions);
     public string Loaders => "Загрузчики: " + string.Join(", ", Project.Loaders);
     public string License => "Лицензия: " + (Project.License?.Id ?? "не указана");
+    public string Categories => string.Join(" · ", Project.Categories);
+    public string Dates => (Project.Published == default ? "" : $"Опубликован {Project.Published:dd.MM.yyyy}") + (Project.Updated == default ? "" : $" · Обновлён {Project.Updated:dd.MM.yyyy}");
+    public string Environment => "Окружение: " + (Project.Environment.Length > 0 ? string.Join(", ", Project.Environment) : "клиент — " + Project.ClientSide);
     public IReadOnlyList<ProjectLinkViewModel> Links { get; }
     public IRelayCommand<string> OpenLinkCommand { get; }
     [ObservableProperty] private Bitmap? _icon;

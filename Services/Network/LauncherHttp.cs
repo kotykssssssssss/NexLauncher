@@ -16,7 +16,7 @@ namespace NexLauncher.Services.Network;
 
 public sealed class LauncherHttp
 {
-    public const string UserAgent = "NexLauncher/0.2 (github.com/kotykssssssssss/NexLauncher)";
+    public static string UserAgent { get; } = $"NexLauncher/{BuildInfo.Version} (github.com/kotykssssssssss/NexLauncher)";
     public static LauncherHttp Shared { get; } = new(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = Timeout.InfiniteTimeSpan });
     private readonly HttpClient _client;
     private readonly SemaphoreSlim _apiGate = new(1, 1);

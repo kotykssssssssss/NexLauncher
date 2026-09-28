@@ -22,7 +22,11 @@ public sealed class ModrinthHit
     public long Downloads { get; set; }
     public string[] Versions { get; set; } = [];
     public string[] Categories { get; set; } = [];
-    public string Credit => Author + " · " + Downloads.ToString("N0") + " загрузок";
+    public string? Organization { get; set; }
+    public DateTimeOffset DateModified { get; set; }
+    public string Credit => (Organization is { Length: > 0 } ? Organization : Author) + " · " + Downloads.ToString("N0") + " загрузок";
+    public string Tags => string.Join(" · ", Categories.Where(x => x is not ("fabric" or "forge" or "neoforge" or "quilt")).Take(5));
+    public string Updated => DateModified == default ? "" : "Обновлён " + DateModified.ToString("dd.MM.yyyy");
     public string Compatibility => string.Join(", ", Categories.Where(x => x is "fabric" or "forge" or "neoforge")) + " · " + string.Join(", ", Versions.TakeLast(6));
 }
 public sealed class ModrinthProject
@@ -36,6 +40,9 @@ public sealed class ModrinthProject
     public string[] Environment { get; set; } = [];
     public string[] GameVersions { get; set; } = [];
     public string[] Loaders { get; set; } = [];
+    public string[] Categories { get; set; } = [];
+    public DateTimeOffset Published { get; set; }
+    public DateTimeOffset Updated { get; set; }
     public ModrinthLicense? License { get; set; }
     public string? IconUrl { get; set; }
     public long Downloads { get; set; }

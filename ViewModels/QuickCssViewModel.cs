@@ -51,8 +51,8 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
             Directory.CreateDirectory(folder);
             var path = Path.Combine(folder, "quickcss.css");
             if (File.Exists(path)) path = Path.Combine(folder, $"quickcss-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.css");
-            var example = Path.Combine(AppContext.BaseDirectory, "Assets", "quickcss.example.css");
-            await using (var source = File.OpenRead(example))
+            await using (var source = typeof(QuickCssViewModel).Assembly.GetManifestResourceStream("NexLauncher.QuickCssExample")
+                ?? throw new InvalidOperationException("Встроенный пример Quick CSS недоступен."))
             await using (var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true))
                 await source.CopyToAsync(target, _lifetime.Token);
             FilePath = path; Enabled = true;

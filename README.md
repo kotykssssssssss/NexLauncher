@@ -3,16 +3,32 @@
 Независимый Minecraft: Java Edition launcher на C# / Avalonia.
 Не связан с Mojang или Microsoft. Текущая сборка рассчитана на Windows.
 
+## Windows release v0.1.0-alpha
+
+Для Windows 11 x64 подготовлены **Installer** `NexLauncher-Setup-v0.1.0-alpha.exe`
+и **Portable** `NexLauncher-v0.1.0-alpha-win-x64.zip`. В portable распакуй архив
+и запусти `NexLauncher.exe`. Оба содержат .NET 10.0.12 и Windows Desktop Runtime:
+пользователю не нужны Visual Studio, .NET SDK или отдельный .NET Runtime.
+Microsoft-вход требует Edge WebView2 Evergreen Runtime; обычно он уже есть в
+Windows 11, а Installer при необходимости запускает официальный Microsoft bootstrapper.
+
+Это неподписанная alpha: возможен SmartScreen warning. Проверяй источник и SHA256,
+не отключай защиту Windows. Готовый пакет ещё нужно проверить на чистой Windows
+перед публикацией. [Сборка релиза, ограничения и полный manual checklist](docs/RELEASE.md).
+[Результаты фактически выполненных release-проверок](docs/RELEASE_VALIDATION.md).
+
 ## Возможности
 
 - «Играть», «Сборки», «Настройки», журнал запуска и понятные ошибки.
 - Каталог Vanilla: релизы по умолчанию, снапшоты по желанию.
 - Независимые Vanilla / Fabric / Forge / NeoForge сборки с выбором совместимой
   loader version из официальной metadata. Forge — с Minecraft 1.13, NeoForge — с 1.20.2.
-- Modrinth: поиск modpacks и совместимых модов, проверка dependencies, установка,
+- Modrinth: отдельные полноширинные каталоги **Modpacks / Mods**, фильтры и сортировка,
+  выбор целевого instance, проверка dependencies, установка,
   выбор версии, проверка обновлений и безопасное удаление управляемых модов.
   Отдельная страница проекта с полным безопасным Markdown-описанием, авторами,
-  ссылками и установленной версией. Для отдельных модов: «Играть → Моды».
+  ссылками и установленной версией; возврат сохраняет поиск и позицию списка.
+  Для отдельных модов: «Modrinth → Mods» или «Играть → Моды».
 - Системный выбор папки новых сборок на локальном диске; старые пути сохраняются.
 - Отдельные версии, игровые папки, миры, RAM и Java для каждой сборки.
 - Установка клиента, библиотек, ресурсов и Java через CmlLib.Core;
@@ -39,11 +55,13 @@
 - [Загрузчики: источники, установка, Java и ограничения](docs/MOD_LOADERS.md).
 - [Modrinth: моды, dependencies, modpacks, правила и восстановление](docs/MODRINTH.md).
 - [Папки, migration и безопасность хранения](docs/STORAGE.md).
+- [Релиз Windows: упаковка, обновление, smoke tests](docs/RELEASE.md).
 
 ## Запуск разработки
 
-Для разработки нужны Windows и .NET 10 SDK. Готовому лаунчеру нужен
-.NET Windows Desktop Runtime 10 из-за текущей Windows-сборки.
+Для разработки нужны Windows и .NET 10 SDK. Обычный `dotnet build` создаёт
+framework-dependent сборку, которой нужен .NET Windows Desktop Runtime 10.
+Распространяемые release-пакеты self-contained и этого требования не имеют.
 Microsoft Edge WebView2 Runtime требуется только для Microsoft-входа;
 локальный аккаунт не открывает WebView2 и не требует его для входа.
 
@@ -52,7 +70,8 @@ Microsoft Edge WebView2 Runtime требуется только для Microsoft
     dotnet run --project NexLauncher.csproj --configuration Release --artifacts-path .artifacts
 
 Executable: .artifacts/bin/NexLauncher/release/NexLauncher.exe.
-Параметр artifacts-path позволяет не изменять старые отслеживаемые bin/ и obj/.
+Build outputs и release artifacts находятся в `.artifacts/` и игнорируются Git.
+Полный release pipeline: `pwsh -NoProfile -File scripts/Build-Release.ps1`.
 
 CmlLib.Core 4.0.6, Auth.Microsoft 3.3.1 и Avalonia 12.1.0 сохранены.
 Добавлен System.Security.Cryptography.ProtectedData 10.0.12 для DPAPI.

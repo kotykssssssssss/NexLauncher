@@ -1,0 +1,31 @@
+name: Windows alpha artifacts
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build, check and package unsigned Windows release
+        shell: pwsh
+        run: ./scripts/Build-Release.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NexLauncher-windows-alpha
+          path: .artifacts/releases/*/*
+          if-no-files-found: error
+      - name: Upload build/check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-logs
+          path: .artifacts/release-builds/*/logs/*
+          if-no-files-found: ignore
