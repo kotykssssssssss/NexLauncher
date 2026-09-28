@@ -42,8 +42,7 @@ public sealed partial class ModrinthViewModel
     public bool IsProjectInstalled => !IsPacks && Details is { } detail && Installed.Any(x => x.Version.ProjectId == detail.Project.Id);
     public string InstallLabel => IsPacks ? "Установить сборку" : IsSelectedInstalled ? "Установлено" :
         _plannedVersion == SelectedVersion?.Id && SelectedVersion is not null ? "Подтвердить установку" : IsProjectInstalled ? "Обновить / сменить версию…" : "Установить мод…";
-    public string VersionSummary => SelectedVersion is not { } version ? "Выбери совместимую версию" :
-        $"{version.VersionType} · {version.DatePublished:dd.MM.yyyy} · {string.Join(", ", version.Loaders)}";
+    public string VersionSummary => SelectedVersion?.SelectionSummary ?? "Выбери совместимую версию";
     public IRelayCommand PacksModeCommand { get; private set; } = null!;
     public IRelayCommand ModsModeCommand { get; private set; } = null!;
     public IRelayCommand BrowseModsCommand { get; private set; } = null!;

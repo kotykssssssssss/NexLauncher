@@ -41,10 +41,12 @@ internal static class Program
                 await RenderWindow();
                 await ModdedChecks.RunAsync(Root, Check);
                 await ProjectDetailsChecks.RunAsync(Root, Check);
+                ModrinthVersionDisplayChecks.Run(Check);
                 await ModrinthBrowserChecks.RunAsync(Root, Check);
                 await ReleaseChecks.RunAsync(Root, Check);
                 if (args.Contains("--modded-network")) await ModdedChecks.LiveAsync(Check);
-                if (args.Contains("--browser-live")) await ModrinthBrowserChecks.LiveAsync(Root, Check);
+                if (args.Contains("--browser-live") || args.Contains("--browser-install-live"))
+                    await ModrinthBrowserChecks.LiveAsync(Root, Check, args.Contains("--browser-install-live"));
                 if (args.Contains("--network")) await CheckOfficialCatalogue();
                 if (args.Contains("--install-smoke")) await CheckInstallation();
                 if (args.Contains("--loader-install-smoke")) await ModdedChecks.InstallLiveAsync(Check);

@@ -1,4 +1,9 @@
-# Windows release v0.1.0-alpha
+# Windows release v0.1.1-alpha
+
+Патч поверх `v0.1.0-alpha`: селектор Modrinth Mods/Modpacks показывает номер проекта,
+Minecraft versions и loaders. Подпись выбранной версии содержит полный список,
+release channel и дату. Install/dependency pipeline и форматы пользовательских данных
+сохранены. Результаты текущих и предыдущих проверок — в [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md).
 
 Цель дистрибутива — Windows 11 x64, обычный пользователь без Visual Studio, .NET SDK,
 NuGet cache и checkout проекта. Эта alpha **не подписана** code-signing сертификатом.
@@ -10,8 +15,8 @@ Linux/macOS и каждый возможный Minecraft/modpack в этом р�
 
 | Пакет | Как использовать |
 | --- | --- |
-| `NexLauncher-Setup-v0.1.0-alpha.exe` | Рекомендуемый installer; установка для текущего пользователя, Start Menu shortcut, необязательный Desktop shortcut, uninstall. |
-| `NexLauncher-v0.1.0-alpha-win-x64.zip` | Распаковать в отдельную локальную папку, запустить `NexLauncher.exe`. Не запускать прямо из ZIP. |
+| `NexLauncher-Setup-v0.1.1-alpha.exe` | Рекомендуемый installer; установка для текущего пользователя, Start Menu shortcut, необязательный Desktop shortcut, uninstall. |
+| `NexLauncher-v0.1.1-alpha-win-x64.zip` | Распаковать в отдельную локальную папку, запустить `NexLauncher.exe`. Не запускать прямо из ZIP. |
 
 В обоих пакетах одинаковый **self-contained single-file** `NexLauncher.exe`:
 .NET Core Runtime и Windows Desktop Runtime **10.0.12**, Avalonia и managed/native
@@ -82,15 +87,15 @@ ZIP и Inno installer. Не создаёт commit/push/GitHub Release.
 Готовые файлы:
 
 ```text
-.artifacts/releases/v0.1.0-alpha/
-  NexLauncher-Setup-v0.1.0-alpha.exe
-  NexLauncher-v0.1.0-alpha-win-x64.zip
+.artifacts/releases/v0.1.1-alpha/
+  NexLauncher-Setup-v0.1.1-alpha.exe
+  NexLauncher-v0.1.1-alpha-win-x64.zip
   SHA256SUMS.txt
   release-manifest.json
 ```
 
 Logs, промежуточные publish/payload и точный unpackaged EXE:
-`.artifacts/release-builds/0.1.0-alpha-<run-id>/`. Каждый прогон получает новую папку,
+`.artifacts/release-builds/0.1.1-alpha-<run-id>/`. Каждый прогон получает новую папку,
 поэтому в payload не попадают остатки старых DLL/тем/debug files. В общий releases
 directory копируются только известные filenames после успешной сборки. Manifest
 содержит SDK/runtime versions, размеры, SHA256, unsigned status и hash WebView bootstrapper.
@@ -132,7 +137,7 @@ GUI и clean Windows smoke tests CI workflow не подменяет.
 ```powershell
 dotnet run --project tests/NexLauncher.Checks -c Release --artifacts-path .artifacts
 pwsh -NoProfile -File scripts/Test-Release.ps1 `
-  -PortableZip .artifacts/releases/v0.1.0-alpha/NexLauncher-v0.1.0-alpha-win-x64.zip
+  -PortableZip .artifacts/releases/v0.1.1-alpha/NexLauncher-v0.1.1-alpha-win-x64.zip
 ```
 
 Второй script извлекает allowlisted ZIP в новую папку с пробелами/Unicode, запускает
@@ -172,6 +177,10 @@ BuildProcess для Minecraft 1.21.1 + Fabric 0.16.10 / Forge 52.0.28 / NeoForge
 - [ ] Details: полное описание, ссылки, выбранная версия, metadata; длинное описание
   прокручивается. **К результатам** сохраняет запрос/фильтры/sort/page/scroll.
   Переключение вкладок сохраняет отдельные поиски и target instance.
+- [ ] Version selector: в каждом пункте видны номер проекта, Minecraft и loader;
+  выбранная подпись содержит все значения, channel и дату. Проверить Fabulously
+  Optimized и мод с несколькими game versions, прокрутить список до старого релиза
+  и установить именно его. Сверить установленную версию и Minecraft.
 - [ ] Install → review dependencies → confirm; installed version, update, remove;
   несовместимый loader/version не включает установку. Manual JAR сохраняются.
 - [ ] Loading/cancel, offline/error/retry, no-results, отсутствие instances/mods.
@@ -186,6 +195,17 @@ Opt-in проверка реальных Modrinth API и screenshot rendering:
 ```powershell
 dotnet run --project tests/NexLauncher.Checks -c Release --artifacts-path .artifacts -- --browser-live
 ```
+
+Для дополнительной реальной установки выбранной в UI версии Sodium:
+
+```powershell
+dotnet run --project tests/NexLauncher.Checks -c Release --artifacts-path .artifacts -- --browser-install-live --modded-network
+```
+
+Этот opt-in прогон скачивает мод через существующий pipeline в новый изолированный
+instance под `.artifacts/checks/`, сверяет выбранный version ID, SHA512 и сохранность
+неизвестного JAR. Не запускает Minecraft и не устанавливает полный modpack.
+Обычный offline suite по-прежнему использует fixtures без сети.
 
 ## Обязательный manual checklist перед публикацией
 

@@ -168,8 +168,13 @@
                                     <TextBlock Text="Версия и установка" FontSize="18" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding Context}" Classes="caption" TextWrapping="Wrap"/>
                                     <TextBlock Text="Совместимых клиентских версий нет." IsVisible="{Binding HasNoVersions}" Classes="caption" TextWrapping="Wrap"/>
-                                    <ComboBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" PlaceholderText="Выбери версию" IsEnabled="{Binding IsEditable}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="models:ModrinthVersion"><TextBlock Text="{Binding VersionNumber}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                    <ComboBox x:Name="VersionSelector" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" PlaceholderText="Выбери версию" IsEnabled="{Binding IsEditable}" MaxDropDownHeight="320" HorizontalContentAlignment="Stretch">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="models:ModrinthVersion">
+                                            <StackPanel Spacing="3" MaxWidth="460" HorizontalAlignment="Left" ToolTip.Tip="{Binding SelectionSummary}">
+                                                <TextBlock Text="{Binding DisplayNumber}" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding CompatibilityLabel}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                     <TextBlock Text="{Binding VersionSummary}" Classes="caption" TextWrapping="Wrap"/>
                                     <StackPanel IsVisible="{Binding IsPacks}" Spacing="8" IsEnabled="{Binding IsEditable}">

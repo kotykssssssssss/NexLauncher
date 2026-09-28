@@ -3,10 +3,13 @@
 Независимый Minecraft: Java Edition launcher на C# / Avalonia.
 Не связан с Mojang или Microsoft. Текущая сборка рассчитана на Windows.
 
-## Windows release v0.1.0-alpha
+## Windows release v0.1.1-alpha
 
-Для Windows 11 x64 подготовлены **Installer** `NexLauncher-Setup-v0.1.0-alpha.exe`
-и **Portable** `NexLauncher-v0.1.0-alpha-win-x64.zip`. В portable распакуй архив
+Патч исправляет выбор версии Modrinth: Mods и Modpacks показывают Minecraft,
+loader, номер релиза и полные metadata выбранной версии. Новых крупных функций нет.
+
+Для Windows 11 x64 подготовлены **Installer** `NexLauncher-Setup-v0.1.1-alpha.exe`
+и **Portable** `NexLauncher-v0.1.1-alpha-win-x64.zip`. В portable распакуй архив
 и запусти `NexLauncher.exe`. Оба содержат .NET 10.0.12 и Windows Desktop Runtime:
 пользователю не нужны Visual Studio, .NET SDK или отдельный .NET Runtime.
 Microsoft-вход требует Edge WebView2 Evergreen Runtime; обычно он уже есть в

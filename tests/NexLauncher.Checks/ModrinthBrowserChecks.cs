@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Avalonia;
@@ -144,7 +145,7 @@ internal static class ModrinthBrowserChecks
         window.Close();
     }
     private static async Task Idle(ModrinthViewModel model) => await Until(() => !model.IsBusy && !model.IsLoadingDetails && model.FiltersMessage != "Загрузка фильтров…");
-    public static async Task LiveAsync(string root, Action<bool, string> check)
+    public static async Task LiveAsync(string root, Action<bool, string> check, bool installMod = false)
     {
         var directory = Path.Combine(root, "browser-live"); Directory.CreateDirectory(directory);
         var store = new ConfigurationStore(Path.Combine(directory, "data"));
@@ -169,8 +170,32 @@ internal static class ModrinthBrowserChecks
                 await Until(() => !browser.IsLoadingDetails, 90); await Layout();
                 check(!browser.HasError && browser.HasDetails && browser.Details!.Description.Blocks.Count > 0 && browser.Versions.Count > 0, "live project description and concrete versions render: " + browser.Details?.Project.Title);
                 if (!packs) check(browser.Versions.All(x => ModrinthService.IsCompatible(x, target)), "live Mods version chooser uses exact Minecraft + Fabric compatibility");
+                var view = window.GetVisualDescendants().OfType<ModrinthView>().Single();
+                Save(window, directory, packs ? "pack-latest-version" : "mod-latest-version");
+                var chosen = browser.Versions[browser.Versions.Count / 2];
+                view.FindControl<ComboBox>("VersionSelector")!.SelectedItem = chosen; await Layout();
+                var actual = await new ModrinthService(LauncherHttp.Shared).VersionAsync(chosen.Id, default);
+                check(ReferenceEquals(browser.SelectedVersion, chosen) && browser.VersionSummary == actual.SelectionSummary &&
+                    actual.GameVersions.SequenceEqual(chosen.GameVersions) && actual.Loaders.SequenceEqual(chosen.Loaders),
+                    "live selection retains exact version ID and matches independently fetched API Minecraft/loader metadata: " + chosen.Id);
+                await ModrinthVersionDisplayChecks.VerifySelectorAsync(window, view, directory, packs ? "pack-wide" : "mod-wide", check);
                 Save(window, directory, packs ? "pack-details" : "mod-details");
                 window.Width = 1060; window.Height = 760; await Layout(); Save(window, directory, packs ? "pack-details-small" : "mod-details-small");
+                await ModrinthVersionDisplayChecks.VerifySelectorAsync(window, view, directory, packs ? "pack-small" : "mod-small", check);
+                if (!packs && installMod)
+                {
+                    var mods = Path.Combine(target.GameDirectory, "mods"); Directory.CreateDirectory(mods);
+                    var manual = Path.Combine(mods, "manual-check.jar"); await File.WriteAllTextAsync(manual, "untouched fixture; never launched");
+                    await browser.PrimaryActionCommand.ExecuteAsync(null);
+                    check(browser.InstallCommand.CanExecute(null), "live selected version creates a confirmable dependency plan");
+                    await browser.PrimaryActionCommand.ExecuteAsync(null);
+                    var installed = browser.Installed.Single(x => x.Explicit && x.Version.ProjectId == chosen.ProjectId);
+                    check(installed.Version.Id == chosen.Id && installed.Version.GameVersions.SequenceEqual(chosen.GameVersions),
+                        "live UI installs the selected non-default version ID into the isolated existing instance: " + chosen.Id);
+                    await using var file = File.OpenRead(Path.Combine(mods, installed.FileName));
+                    check(Convert.ToHexStringLower(await SHA512.HashDataAsync(file)) == installed.Hashes["sha512"], "live selected mod JAR matches the API SHA512");
+                    check(await File.ReadAllTextAsync(manual) == "untouched fixture; never launched", "live mod install preserves unknown manual JAR");
+                }
                 browser.BackCommand.Execute(null); await Layout();
                 check(browser.IsBrowsing && browser.Query == (packs ? "Fabulously Optimized" : "Sodium") && browser.Results.Count > 0, "live details Back preserves search results and query");
                 Save(window, directory, packs ? "packs-small" : "mods-small");

@@ -114,18 +114,30 @@ internal static class ProjectDetailsChecks
         (instance, _) => { published.Add(instance); return Task.CompletedTask; }, _ => { });
         using var lifetime = catalog;
         var main = MakeVersion("project1", "version1"); var required = MakeVersion("require1", "requirev");
-        main.Dependencies.Add(new() { ProjectId = required.ProjectId, DependencyType = "required" }); api.Add(main, required);
+        main.Dependencies.Add(new() { ProjectId = required.ProjectId, DependencyType = "required" });
+        var other = MakeVersion(main.ProjectId, "otherver"); other.DatePublished = main.DatePublished.AddHours(1);
+        other.VersionNumber = "Long project version " + new string('v', 300);
+        other.GameVersions = ["1.21", "1.21.1", "1.21.4", "1.21.5"]; other.Loaders = ["fabric", "forge", "neoforge", "quilt"];
+        api.Add(main, required, other);
         var game = Path.Combine(root, "existing-game"); Directory.CreateDirectory(Path.Combine(game, "mods")); await File.WriteAllTextAsync(Path.Combine(game, "mods", "manual.jar"), "keep");
         var instance = new GameInstance { Loader = ModLoader.Fabric, VersionId = "1.21.1", GameDirectory = game };
         transport.Files[main.Files[0].Url] = Jar; transport.Files[required.Files[0].Url] = Jar;
         catalog.Open(false, instance, game); await Until(() => !catalog.IsBusy);
         catalog.SelectedResult = catalog.Results.First(x => x.Hit.ProjectId == main.ProjectId);
         await Until(() => !catalog.IsLoadingDetails);
-        check(catalog.IsDetails && !catalog.IsBrowsing && catalog.Details?.Project.Id == main.ProjectId && catalog.Versions.Count == 1, "clicking a result opens dedicated project details with compatible version chooser");
+        check(catalog.IsDetails && !catalog.IsBrowsing && catalog.Details?.Project.Id == main.ProjectId && catalog.Versions.Count == 2, "clicking a result opens dedicated project details with compatible version chooser");
         check(catalog.Details!.Description.Blocks.Count > 1 && catalog.Details.Credits.Contains("Fixture Author"), "details contains complete native description and API team attribution");
         var view = new ModrinthView { DataContext = catalog };
         var window = new Window { Classes = { "qc-app" }, Content = view, Width = 880, Height = 860, Title = "Details fixture" }; window.Show(); Dispatcher.UIThread.RunJobs();
         var scroll = view.FindControl<ScrollViewer>("DetailsScroll")!;
+        var selector = view.FindControl<ComboBox>("VersionSelector")!;
+        check(catalog.SelectedVersion?.Id == other.Id, "Mods initially selects newest compatible concrete version");
+        await ModrinthVersionDisplayChecks.VerifySelectorAsync(window, view, root, "long-multi-version", check);
+        window.Width = 1280; Dispatcher.UIThread.RunJobs();
+        await ModrinthVersionDisplayChecks.VerifySelectorAsync(window, view, root, "long-multi-version-side-panel", check);
+        window.Width = 880;
+        selector.SelectedItem = main; Dispatcher.UIThread.RunJobs();
+        check(ReferenceEquals(catalog.SelectedVersion, main) && catalog.VersionSummary.Contains("Minecraft 1.21.1") && catalog.VersionSummary.Contains("Fabric"), "Mods selector preserves selected object and ID while exposing Minecraft and loader metadata");
         using (var frame = window.CaptureRenderedFrame()) { check(frame is not null, "project details renders with existing NexLauncher theme"); frame!.Save(Path.Combine(root, "project-details.png"), PngBitmapEncoderOptions.Default); }
         var descriptionControl = view.GetVisualDescendants().OfType<ProjectDescriptionView>().Single();
         var nativeText = descriptionControl.Children.OfType<TextBlock>().ToArray();
@@ -146,7 +158,7 @@ internal static class ProjectDetailsChecks
         main.Loaders = ["forge"]; await catalog.InstallCommand.ExecuteAsync(null);
         check(errors.LastOrDefault() is InvalidOperationException && !File.Exists(Path.Combine(game, "mods", main.Files[0].Filename)), "concrete version compatibility is rechecked at installation after details and planning");
         main.Loaders = ["fabric"]; errors.Clear(); await catalog.PrimaryActionCommand.ExecuteAsync(null);
-        check(errors.Count == 0 && catalog.Installed.Count == 2 && catalog.Details.InstallationStatus.Contains("version1"), "details installs individual mod and required dependency into existing instance and refreshes installed version");
+        check(errors.Count == 0 && catalog.Installed.Count == 2 && catalog.Installed.Single(x => x.Explicit).Version.Id == main.Id && catalog.Details.InstallationStatus.Contains("version1"), "Mods installs the user-selected older version ID, not the newest visible alternative, plus required dependency");
         check(await File.ReadAllTextAsync(Path.Combine(game, "mods", "manual.jar")) == "keep", "details installation leaves manual JAR untouched");
         check(catalog.IsSelectedInstalled && !catalog.PrimaryActionCommand.CanExecute(null), "installed selected version is labelled and cannot be installed again by primary action");
         var next = MakeVersion("project1", "version2"); next.DatePublished = main.DatePublished.AddDays(1); next.Dependencies.Add(main.Dependencies[0]); api.Add(next); transport.Files[next.Files[0].Url] = Jar;
@@ -189,11 +201,19 @@ internal static class ProjectDetailsChecks
                 writer.Write("{\"formatVersion\":1,\"game\":\"minecraft\",\"versionId\":\"1\",\"name\":\"Pack\",\"files\":[],\"dependencies\":{\"minecraft\":\"1.21.1\",\"fabric-loader\":\"0.16.10\"}}");
             var bytes = stream.ToArray(); pack.Files[0].Hashes = Hashes(bytes); pack.Files[0].Size = bytes.Length; transport.Files[pack.Files[0].Url] = bytes;
         }
-        api.Add(pack); api.Projects[pack.ProjectId].ProjectType = "modpack";
+        var alternativePack = MakeVersion(pack.ProjectId, "otherpack"); alternativePack.DatePublished = pack.DatePublished.AddHours(1);
+        alternativePack.GameVersions = ["1.20.1"]; alternativePack.VersionNumber = pack.VersionNumber;
+        api.Add(pack, alternativePack); api.Projects[pack.ProjectId].ProjectType = "modpack";
         catalog.Open(true, null, ""); await Until(() => !catalog.IsBusy); catalog.SelectedResult = catalog.Results.Single(); await Until(() => !catalog.IsLoadingDetails);
+        var packView = new ModrinthView { DataContext = catalog }; var packWindow = new Window { Content = packView, Width = 880, Height = 760 }; packWindow.Show(); Dispatcher.UIThread.RunJobs();
+        var packSelector = packView.FindControl<ComboBox>("VersionSelector")!;
+        check(catalog.SelectedVersion?.Id == alternativePack.Id && pack.CompatibilityLabel != alternativePack.CompatibilityLabel, "same modpack version_number remains distinguishable by actual Minecraft metadata");
+        packSelector.SelectedItem = pack; Dispatcher.UIThread.RunJobs();
+        check(ReferenceEquals(catalog.SelectedVersion, pack) && catalog.VersionSummary.Contains("Minecraft 1.21.1"), "Modpacks uses the same selector presentation and retains the exact user-selected version ID");
         await catalog.InstallCommand.ExecuteAsync(null);
-        check(errors.Count == 0 && published.Count == 1 && published[0].GameDirectory != game && minecraft.Installs == 1 && published[0].ModrinthProjectId == pack.ProjectId, "modpack details still stages and installs a separate instance using original pipeline");
+        check(errors.Count == 0 && published.Count == 1 && published[0].GameDirectory != game && minecraft.Installs == 1 && published[0].ModrinthProjectId == pack.ProjectId && published[0].ModrinthVersionId == pack.Id && published[0].VersionId == "1.21.1", "Modpacks installs selected version ID with matching manifest Minecraft into a separate instance");
         check(File.Exists(Path.Combine(game, "mods", "manual.jar")), "pack details cannot overlay the previously selected existing instance");
+        packWindow.Close();
     }
     private static async Task Until(Func<bool> condition)
     { var deadline = DateTime.UtcNow.AddSeconds(5); while (!condition()) { if (DateTime.UtcNow > deadline) throw new TimeoutException(); await Task.Delay(10); } }

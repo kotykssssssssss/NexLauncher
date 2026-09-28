@@ -11,7 +11,7 @@ internal static class ReleaseChecks
     {
         var assembly = typeof(BuildInfo).Assembly;
         var product = assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product;
-        check(product == "NexLauncher" && BuildInfo.Version == "0.1.0-alpha", "release product and informational version are set");
+        check(product == "NexLauncher" && BuildInfo.Version == "0.1.1-alpha", "release product and informational version are set");
         check(LauncherHttp.UserAgent.StartsWith("NexLauncher/" + BuildInfo.Version + " "), "HTTP identification follows the release version");
         using var resource = assembly.GetManifestResourceStream("NexLauncher.QuickCssExample");
         check(resource is { Length: > 100 }, "Quick CSS example is embedded, independent of publish directory");

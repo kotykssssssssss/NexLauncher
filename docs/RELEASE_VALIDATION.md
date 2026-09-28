@@ -1,3 +1,92 @@
+# v0.1.1-alpha — patch validation, 28 сентября 2026
+
+Патч подготовлен поверх `261cd96` (`v0.1.0-alpha`). До изменений рабочее дерево
+было чистым, baseline — 439/439 checks. Релизные скрипты и работающая архитектура
+сохранены. Commit, tag, push и GitHub Release не создавались.
+
+## Исправление
+
+API уже корректно передавал metadata. XAML ItemTemplate показывал только
+`VersionNumber`, а подпись выбора не включала Minecraft. Теперь Mods и Modpacks
+используют общий формат модели: номер проекта и `Minecraft … · loader` в dropdown;
+полные версии Minecraft/loaders, канал и дата — под ним и в tooltip. Несколько
+значений перечисляются без выдуманных диапазонов; длинные списки сокращаются
+только в dropdown с `(+N)`. Неизвестные значения не подменяются догадками.
+
+Изменены `Models/ModrinthModels.cs`, `ViewModels/ModrinthBrowserState.cs`,
+`Views/ModrinthView.axaml`, release metadata/notes и regression checks.
+Добавлен `tests/NexLauncher.Checks/ModrinthVersionDisplayChecks.cs`.
+API mapping, install/dependency/compatibility pipeline, accounts/DPAPI и форматы
+данных не менялись. Новых dependencies нет. `Assets/very important asset/`
+и NexVisuals не затронуты. Больших удалений в patch diff нет.
+
+## Результаты этого патча
+
+| Проверка | Результат |
+| --- | --- |
+| Debug / Release, `-warnaserror` | Оба успешны, 0 warnings / 0 errors |
+| Полный offline regression suite, Release | **463/463** |
+| Suite + `--browser-install-live --modded-network`, Debug | **501/501** (463 + 38 opt-in) |
+| Windows x64 self-contained publish / Inno Setup | Успех |
+| Финальный Portable EXE без developer environment | Responsive window, bundle runtime/Skia, exit 0 |
+| Installer: 0.1.0 → 0.1.1, startup, reinstall, uninstall | **20/20** отдельных checks |
+
+Настоящие MainWindow/ModrinthView отрисованы в Avalonia.Headless/Skia; снимки
+визуально просмотрены. Проверены dropdown и подпись Fabulously Optimized/Sodium
+на реальных API-данных, 1920×1080 и 1060×760, прокрутка до последнего релиза;
+fixtures проверяют длинный номер, много game versions/loaders и узкую боковую
+панель. Отсутствующие/null metadata имеют отдельные checks. Это не native input/DPI test.
+
+Fabulously Optimized `15.0.0-alpha.4` на момент проверки сообщает **Minecraft 26.3,
+Fabric** — это показано из API, не из примера/названия релиза. Выбор другого релиза
+`jPRbzNeS` сверён отдельным `/version/{id}` запросом. В live Mods выбран Sodium
+`mc1.21.1-0.6.9-fabric` (`26nVNc41`), поддерживающий Minecraft 1.21 и 1.21.1.
+Он реально установлен командами details UI в изолированную папку: ID совпал,
+SHA512 JAR проверен, неизвестный manual JAR остался. Игровое окно не запускалось.
+Выбор и установка modpack по точному ID проверены через fixture API, настоящий
+staging/manifest pipeline и fake Minecraft backend; полный live modpack не скачивался.
+
+В Installer проверено сохранение неизвестного файла при upgrade/reinstall/uninstall
+и неизменность хешей восьми существующих файлов settings/account metadata/themes.
+Portable и Installer проверялись в текущем Windows-профиле, **не в clean VM**.
+
+## Дистрибутивы
+
+Папка: `.artifacts/releases/v0.1.1-alpha/`.
+
+| Artifact | Точный размер, байт |
+| --- | ---: |
+| `NexLauncher-Setup-v0.1.1-alpha.exe` | 46 026 278 |
+| `NexLauncher-v0.1.1-alpha-win-x64.zip` | 60 652 617 |
+| `NexLauncher.exe` внутри обоих пакетов | 148 340 115 |
+
+ZIP содержит настоящий self-contained single-file EXE и документы. Runtime/SDK
+пользователю не нужен; оба пакета unsigned. Требования WebView2 и прочие alpha
+ограничения прежние — см. [RELEASE.md](RELEASE.md). SHA256 записаны в
+`SHA256SUMS.txt` и `release-manifest.json` рядом с пакетами.
+
+Локальные evidence (не входят в git/distribution):
+
+- Build/publish/check logs: `.artifacts/release-builds/0.1.1-alpha-8ccc6dc0e7044cd386e3371e9ec9d928/logs/`.
+- Live API/UI/install: `.artifacts/patch-live-checks.log`; screenshots/data: `.artifacts/checks/b75c646555674786bed139f7ee2b868d/`.
+- Portable: `.artifacts/release-smoke/Windows Релиз 3c9fbd710e92473c8774b815d3c08a23/smoke-result.json`.
+- Installer: `.artifacts/installer-smoke/Установка 5e94c2e0d481493f86cfb7229f4d8cb7/result.json`.
+
+## Перед публикацией вручную
+
+- [ ] Проверить native mouse/keyboard dropdown, resize и Windows scaling 125/150%,
+  в том числе с пользовательской Quick CSS темой.
+- [ ] Выбрать конкретный Fabulously Optimized release, установить полный pack,
+  сверить Minecraft/loader/версию и запустить игру. Повторить с выбранным модом.
+- [ ] Проверить Microsoft login/refresh и игровой запуск своих Microsoft/Local accounts.
+- [ ] На чистой Windows 11 проверить Portable, Installer, обновление и сохранность
+  собственных instances/settings. Полный checklist остаётся в [RELEASE.md](RELEASE.md).
+
+Исторические проверки ниже относятся только к `v0.1.0-alpha`; игровые install/repair
+и startup из них не объявляются повторно выполненными для текущего патча.
+
+---
+
 # v0.1.0-alpha — результаты проверки 28 сентября 2026
 
 Рабочее дерево подготовлено к финальной ручной проверке, **не к публикации без неё**.

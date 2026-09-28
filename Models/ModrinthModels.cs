@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace NexLauncher.Models;
 
@@ -80,14 +81,29 @@ public sealed class ModrinthVersion
     public string ProjectId { get; set; } = "";
     public string Name { get; set; } = "";
     public string VersionNumber { get; set; } = "";
-    public string VersionType { get; set; } = "release";
+    public string VersionType { get; set; } = "";
     public DateTimeOffset DatePublished { get; set; }
     public string[] GameVersions { get; set; } = [];
     public string[] Loaders { get; set; } = [];
     public string? Environment { get; set; }
     public List<ModrinthDependency> Dependencies { get; set; } = new();
     public List<ModrinthFile> Files { get; set; } = new();
-    public override string ToString() => VersionNumber + " · " + VersionType + " · " + string.Join(", ", GameVersions) + " · " + string.Join(", ", Loaders);
+    // Presentation only: keep persisted/API metadata and SelectedVersion identity unchanged.
+    [JsonIgnore] public string DisplayNumber => string.IsNullOrWhiteSpace(VersionNumber) ? "Версия не указана" : VersionNumber;
+    [JsonIgnore] public string CompatibilityLabel => "Minecraft " + Values(GameVersions, "не указан", true) + " · " + Values(Loaders, "загрузчик не указан", true, LoaderName);
+    [JsonIgnore] public string SelectionSummary => DisplayNumber + " · Minecraft " + Values(GameVersions, "не указан") +
+        " · " + Values(Loaders, "загрузчик не указан", format: LoaderName) + " · " +
+        (VersionType switch { "release" => "Release", "beta" => "Beta", "alpha" => "Alpha", null or "" => "Тип не указан", _ => VersionType }) + " · " +
+        (DatePublished == default ? "Дата не указана" : DatePublished.ToString("dd.MM.yyyy"));
+    private static string LoaderName(string value) => value switch { "fabric" => "Fabric", "forge" => "Forge", "neoforge" => "NeoForge", "quilt" => "Quilt", "minecraft" => "Minecraft", _ => value };
+    private static string Values(string[]? values, string missing, bool compact = false, Func<string, string>? format = null)
+    {
+        var items = (values ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.Ordinal).ToArray();
+        if (items.Length == 0) return missing;
+        var shown = compact ? items.Take(3) : items;
+        return string.Join(", ", shown.Select(x => format?.Invoke(x) ?? x)) + (compact && items.Length > 3 ? $" (+{items.Length - 3})" : "");
+    }
+    public override string ToString() => SelectionSummary;
 }
 public sealed class ModrinthFile
 {

@@ -1,4 +1,4 @@
-NexLauncher v0.1.0-alpha - Windows 11 x64
+NexLauncher v0.1.1-alpha - Windows 11 x64
 
 This is an unsigned alpha. Windows may show a SmartScreen reputation warning.
 Check the download source and SHA256. No Windows security setting needs to be disabled.

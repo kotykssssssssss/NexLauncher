@@ -1,4 +1,4 @@
-NexLauncher v0.1.0-alpha - Windows 11 x64
+NexLauncher v0.1.1-alpha - Windows 11 x64
 
 Extract this ZIP to a normal local folder and run NexLauncher.exe.
 No Visual Studio, .NET SDK or separate .NET Runtime is needed.
