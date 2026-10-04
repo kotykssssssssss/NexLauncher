@@ -15,5 +15,6 @@ obj/
 /settings.json
 /auth/
 /skins/
+/skin-library/
 /instances/
 /logs/

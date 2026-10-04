@@ -12,6 +12,7 @@
                 <ColorPaletteResources x:Key="Dark" Accent="{DynamicResource NxAccentColor}"/>
             </FluentTheme.Palettes>
         </FluentTheme>
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
         <Style Selector="Border.qc-sidebar">
             <Setter Property="Background" Value="#202225"/>
             <Setter Property="BorderBrush" Value="#30343A"/>
@@ -116,6 +117,12 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="16"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Background" Value="#25282D"/>
+            <Setter Property="BorderBrush" Value="#383E44"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector="Button.skin-card">
             <Setter Property="Background" Value="#25282D"/>
             <Setter Property="BorderBrush" Value="#383E44"/>
             <Setter Property="BorderThickness" Value="1"/>

@@ -13,6 +13,7 @@ using CommunityToolkit.Mvvm.Input;
 using NexLauncher.Models;
 using NexLauncher.Services;
 using NexLauncher.Services.Skins;
+using NexLauncher.Services.Skins.Catalog;
 using NexLauncher.Services.Loaders;
 using NexLauncher.Services.Network;
 using NexLauncher.Services.Storage;
@@ -64,6 +65,9 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsInstancesPage => CurrentPage == "instances";
     public bool IsSettingsPage => CurrentPage == "settings";
     public bool IsModrinthPage => CurrentPage is "modrinth" or "mods";
+    public bool IsSkinsPage => CurrentPage == "skins";
+    public bool IsStandardPage => !IsModrinthPage && !IsSkinsPage;
+    public SkinCatalogViewModel SkinCatalog { get; }
     public bool IsPacksPage => IsModrinthPage;
     public bool CanOpenMods => SelectedInstance is { Loader: not ModLoader.Vanilla };
     public ModrinthViewModel Catalog { get; }
@@ -121,6 +125,9 @@ public partial class MainWindowViewModel : ObservableObject
             if (args.PropertyName == nameof(QuickCssViewModel.IsBusy)) RefreshState();
         };
         _log = new LauncherLog(store.DataDirectory);
+        var skinLibrary = new SkinLibrary(store.DataDirectory, skinValidator);
+        SkinCatalog = new SkinCatalogViewModel(skinLibrary, skinLibrary, new SkinCatalogPreviewCache(),
+            new SkinPngExport(skinValidator), () => IsEditable, PrepareLibrarySkinAsync, AppendLog);
         Catalog = new ModrinthViewModel(modrinth ?? new ModrinthService(LauncherHttp.Shared), LauncherHttp.Shared, minecraft,
             RunOperationAsync, CreateProgress, () => IsEditable, () => InstancesDirectory, PublishPackAsync, AppendLog);
         Instances.CollectionChanged += (_, _) =>
@@ -129,7 +136,7 @@ public partial class MainWindowViewModel : ObservableObject
         };
         NavigateCommand = new RelayCommand<string>(page =>
         {
-            if (page is "play" or "instances" or "settings" or "modrinth" or "mods") CurrentPage = page;
+            if (page is "play" or "instances" or "settings" or "modrinth" or "mods" or "skins") CurrentPage = page;
         });
         CancelCommand = new RelayCommand(() => _operation?.Cancel(), () => CanCancel);
         DismissErrorCommand = new RelayCommand(() => ErrorMessage = "");
@@ -177,6 +184,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
+        if (SkinCatalog is not null)
+        {
+            if (value == "skins") SkinCatalog.Open(Accounts.Items, Accounts.SelectedAccount);
+            else SkinCatalog.Deactivate();
+        }
         if (Catalog is not null)
         {
             if (value is "modrinth" or "mods")
@@ -217,7 +229,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshState()
     {
-        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(CanOpenMods),
+        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(IsSkinsPage), nameof(IsStandardPage), nameof(CanOpenMods),
             nameof(HasInstance), nameof(HasNoInstances), nameof(HasAccount), nameof(HasNoAccount), nameof(IsEditable),
             nameof(CanCancel), nameof(ShowProgress), nameof(IsInstalled), nameof(AccountName), nameof(InstanceTitle),
             nameof(InstanceDetails), nameof(InstallState), nameof(GameDirectory), nameof(PrimaryButtonText),
@@ -235,6 +247,7 @@ public partial class MainWindowViewModel : ObservableObject
         Accounts?.RefreshCommands();
         QuickCss?.RefreshCommands();
         Catalog?.RefreshCommands();
+        SkinCatalog?.RefreshCommands();
     }
 
     private void FilterVersions()
@@ -451,6 +464,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void Dispose()
     {
+        SkinCatalog.Dispose();
         Catalog.Dispose();
         LoaderOptions.Dispose();
         QuickCss.Dispose();
@@ -530,8 +544,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void OnWindowClosing()
     {
+        SkinCatalog.Deactivate();
         Catalog.Deactivate();
         if (!IsGameRunning) _operation?.Cancel();
+    }
+
+    private async Task PrepareLibrarySkinAsync(LauncherAccount account, SkinCatalogTexture texture)
+    {
+        var saved = Accounts.Items.FirstOrDefault(x => x.Id == account.Id && x.Type == account.Type);
+        if (saved is null || Accounts.Skin is not { } manager) throw new SkinException("Аккаунт больше не сохранён. Выбери другой аккаунт.");
+        Accounts.SelectedAccount = saved;
+        if (!await manager.PrepareDraftAsync(texture.Image, texture.Model)) throw new SkinException("Не удалось подготовить черновик. Проверь аккаунт и повтори действие.");
+        CurrentPage = "settings";
     }
 }
 

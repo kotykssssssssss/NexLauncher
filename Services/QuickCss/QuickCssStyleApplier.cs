@@ -33,10 +33,37 @@ public sealed class QuickCssStyleApplier : IDisposable
     {
         Dispatcher.UIThread.VerifyAccess();
         ObjectDisposedException.ThrowIf(_disposed, this);
+        var activationClass = "qc-theme-" + Guid.NewGuid().ToString("N");
+        var (styles, diagnostics, accent, ruleCount) = BuildStyles(prepared, activationClass, inspectOnly: false);
+        // Attach the replacement before releasing previous bitmaps. Failure preserves the old overlay.
+        try { _window.Styles.Add(styles); }
+        catch { _window.Styles.Remove(styles); throw; }
+        // Fluent template children can retain cached style instances after a parent Styles.Remove.
+        // A unique activator explicitly deactivates their setters and is never reused on reload.
+        if (_activationClass is not null) _window.Classes.Remove(_activationClass);
+        if (_overlay is not null) _window.Styles.Remove(_overlay);
+        _activationClass = activationClass;
+        _window.Classes.Add(activationClass);
+        _overlay = styles;
+        foreach (var image in _images) image.Dispose();
+        _images = prepared.TakeImages();
+        SetAccent(accent);
+        return new(true, ruleCount, diagnostics.Distinct().ToArray(),
+            diagnostics.Count == 0 ? $"Quick CSS применён: {ruleCount} правил." : $"Quick CSS применён: {ruleCount} правил. Есть замечания.");
+    }
+
+    /// <summary>Inspect parser/selector/value diagnostics without applying styles or reading image files.</summary>
+    public static IReadOnlyList<QuickCssDiagnostic> Inspect(QuickCssDocument document)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        using var prepared = new PreparedQuickCss(document, new Dictionary<string, Bitmap>(), document.Diagnostics);
+        return BuildStyles(prepared, "", inspectOnly: true).Diagnostics.Distinct().OrderBy(x => x.Line).ToArray();
+    }
+
+    private static (Styles Styles, List<QuickCssDiagnostic> Diagnostics, Color? Accent, int RuleCount) BuildStyles(PreparedQuickCss prepared, string activationClass, bool inspectOnly)
+    {
         var diagnostics = new List<QuickCssDiagnostic>(prepared.Diagnostics);
         var styles = new Styles();
-        var activationClass = "qc-theme-" + Guid.NewGuid().ToString("N");
-
         Color? accent = null;
         var ruleCount = 0;
         foreach (var rule in prepared.Document.Rules)
@@ -81,7 +108,7 @@ public sealed class QuickCssStyleApplier : IDisposable
                     adapterSetters.Add(new(property, value));
                     used = true;
                 }
-                if (setters.Count > 0)
+                if (setters.Count > 0 && !inspectOnly)
                 {
                     var style = new Style(s => target.Build(s, activationClass));
                     foreach (var setter in setters) style.Setters.Add(new Setter(setter.Key, setter.Value));
@@ -91,21 +118,7 @@ public sealed class QuickCssStyleApplier : IDisposable
             }
             if (used) ruleCount++;
         }
-        // Attach the replacement before releasing previous bitmaps. Failure preserves the old overlay.
-        try { _window.Styles.Add(styles); }
-        catch { _window.Styles.Remove(styles); throw; }
-        // Fluent template children can retain cached style instances after a parent Styles.Remove.
-        // A unique activator explicitly deactivates their setters and is never reused on reload.
-        if (_activationClass is not null) _window.Classes.Remove(_activationClass);
-        if (_overlay is not null) _window.Styles.Remove(_overlay);
-        _activationClass = activationClass;
-        _window.Classes.Add(activationClass);
-        _overlay = styles;
-        foreach (var image in _images) image.Dispose();
-        _images = prepared.TakeImages();
-        SetAccent(accent);
-        return new(true, ruleCount, diagnostics.Distinct().ToArray(),
-            diagnostics.Count == 0 ? $"Quick CSS применён: {ruleCount} правил." : $"Quick CSS применён: {ruleCount} правил. Есть замечания.");
+        return (styles, diagnostics, accent, ruleCount);
     }
 
     public void Clear()

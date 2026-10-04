@@ -34,6 +34,7 @@
                         </StackPanel>
                     </Button>
                     <Button Classes="nav" Classes.active="{Binding IsPacksPage}" Command="{Binding NavigateCommand}" CommandParameter="modrinth" Content="Modrinth"/>
+                    <Button Classes="nav" Classes.active="{Binding IsSkinsPage}" Command="{Binding NavigateCommand}" CommandParameter="skins" Content="Скины"/>
                     <Button Classes="nav" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="settings">
                         <StackPanel Orientation="Horizontal" Spacing="14">
                             <PathIcon Width="15" Height="15" Data="M 2,4 L 20,4 L 20,6 L 2,6 Z M 2,10 L 20,10 L 20,12 L 2,12 Z M 2,16 L 20,16 L 20,18 L 2,18 Z M 6,2 L 9,2 L 9,8 L 6,8 Z M 14,8 L 17,8 L 17,14 L 14,14 Z M 7,14 L 10,14 L 10,20 L 7,20 Z"/>
@@ -70,7 +71,10 @@
             <Grid Grid.Row="1" IsVisible="{Binding IsModrinthPage}">
                 <views:ModrinthView DataContext="{Binding Catalog}"/>
             </Grid>
-            <ScrollViewer Grid.Row="1" IsVisible="{Binding !IsModrinthPage}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Grid Grid.Row="1" IsVisible="{Binding IsSkinsPage}">
+                <views:SkinCatalogView DataContext="{Binding SkinCatalog}"/>
+            </Grid>
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding IsStandardPage}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="18" Margin="0,0,4,16">
                     <StackPanel IsVisible="{Binding IsPlayPage}" Spacing="22">
                         <StackPanel Spacing="8">
@@ -255,7 +259,8 @@
                                 <TextBox Text="{Binding FilePath}" PlaceholderText="Полный путь к .css файлу"/>
                                 <WrapPanel Orientation="Horizontal">
                                     <Button Content="Выбрать файл" Command="{Binding BrowseCommand}" Margin="0,0,8,8"/>
-                                    <Button Content="Открыть в редакторе" Command="{Binding OpenCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="Редактор Quick CSS" Command="{Binding OpenCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="Внешний редактор" Command="{Binding OpenExternalCommand}" Margin="0,0,8,8"/>
                                     <Button Content="Создать пример" Command="{Binding CreateExampleCommand}" Margin="0,0,0,8"/>
                                 </WrapPanel>
                                 <CheckBox Content="Обновлять после сохранения файла" IsChecked="{Binding AutoReload}"/>

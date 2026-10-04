@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NexLauncher.ViewModels" xmlns:css="using:NexLauncher.Services.QuickCss"
+        xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+        x:Class="NexLauncher.Views.QuickCssEditorWindow" x:DataType="vm:QuickCssEditorViewModel" x:CompileBindings="True"
+        Title="{Binding Title}" Width="1040" Height="720" MinWidth="620" MinHeight="440" WindowStartupLocation="CenterOwner">
+    <Window.Styles><Style Selector="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style></Window.Styles>
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
+        <StackPanel Spacing="10" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Quick CSS" FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="Черновик •" IsVisible="{Binding IsDirty}" Foreground="#D7BA7D" VerticalAlignment="Center"/>
+            </Grid>
+            <TextBlock Text="{Binding FilePath}" Classes="caption" TextTrimming="CharacterEllipsis"/>
+            <WrapPanel>
+                <Button Content="Сохранить · Ctrl+S" Command="{Binding SaveCommand}" Margin="0,0,8,4"/>
+                <Button Content="Сохранить и применить" Command="{Binding SaveApplyCommand}" Classes="primary" Margin="0,0,8,4"/>
+                <Button Content="Перечитать файл" Click="ReloadClicked" IsEnabled="{Binding !IsBusy}" Margin="0,0,0,4"/>
+            </WrapPanel>
+        </StackPanel>
+        <Border Grid.Row="1" Background="#15171B" BorderBrush="#363C45" BorderThickness="1" CornerRadius="8" ClipToBounds="True" Padding="8">
+            <edit:TextEditor x:Name="Editor" ShowLineNumbers="True" WordWrap="False" IsReadOnly="{Binding !CanSave}"
+                             FontFamily="Consolas" FontSize="14" Foreground="#DFE4EA" Background="#15171B"
+                             LineNumbersForeground="#74808F" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+        </Border>
+        <StackPanel Grid.Row="2" Spacing="6" Margin="0,10,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Summary}" Classes="caption"/>
+                <TextBlock x:Name="CaretInfo" Grid.Column="1" Classes="caption"/>
+            </Grid>
+            <ListBox x:Name="Problems" ItemsSource="{Binding Diagnostics}" IsVisible="{Binding HasDiagnostics}" MaxHeight="110" SelectionChanged="ProblemSelected">
+                <ListBox.ItemTemplate><DataTemplate x:DataType="css:QuickCssDiagnostic">
+                    <Grid ColumnDefinitions="Auto,*"><TextBlock Text="{Binding Line, StringFormat='Строка {0}:'}" Foreground="#FF707D"/>
+                        <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding Message}" TextWrapping="Wrap"/></Grid>
+                </DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="Quick CSS NexLauncher: @import и браузерный CSS не поддерживаются. Фоны проверяются при применении." Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel>
+        <Border x:Name="ConfirmPanel" Grid.Row="3" IsVisible="False" Background="#392C20" CornerRadius="8" Padding="12" Margin="0,10,0,0">
+            <StackPanel Spacing="8"><TextBlock x:Name="ConfirmText" TextWrapping="Wrap"/>
+                <WrapPanel IsEnabled="{Binding !IsBusy}">
+                    <Button Content="Сохранить" Click="SaveAndContinueClicked" Margin="0,0,8,0"/>
+                    <Button x:Name="DiscardButton" Content="Не сохранять" Click="DiscardClicked" Margin="0,0,8,0"/>
+                    <Button Content="Остаться в редакторе" Click="KeepEditingClicked"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

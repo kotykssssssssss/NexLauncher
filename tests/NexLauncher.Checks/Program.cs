@@ -32,10 +32,12 @@ internal static class Program
             {
                 QuickCssParserChecks.Run(Check);
                 await QuickCssRuntimeChecks.RunAsync(Root, Check);
+                await QuickCssEditorChecks.RunAsync(Root, Check);
                 await AuthenticationChecks.RunAsync(Root, Check);
                 OfflineLaunchChecks.Run(Check);
                 await LocalAccountChecks.RunAsync(Root, Check);
                 await SkinChecks.RunAsync(Root, Check);
+                await SkinCatalogChecks.RunAsync(Root, Check);
                 await CheckStorage();
                 await CheckViewModel();
                 await CheckBackendGuards();

@@ -32,7 +32,9 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
     public IAsyncRelayCommand ReloadCommand { get; }
     public IAsyncRelayCommand BrowseCommand { get; }
     public IAsyncRelayCommand CreateExampleCommand { get; }
-    public IRelayCommand OpenCommand { get; }
+    public IAsyncRelayCommand OpenCommand { get; }
+    public IRelayCommand OpenExternalCommand { get; }
+    public Func<string, Task>? OpenEditorAsync { get; set; }
 
     public QuickCssViewModel(string dataDirectory, Func<QuickCssSettings, Task> save, Func<bool> canEdit)
     {
@@ -47,18 +49,17 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
         }), CanEdit);
         CreateExampleCommand = new AsyncRelayCommand(() => GuardAsync(async () =>
         {
-            var folder = Path.Combine(_dataDirectory, "themes");
-            Directory.CreateDirectory(folder);
-            var path = Path.Combine(folder, "quickcss.css");
-            if (File.Exists(path)) path = Path.Combine(folder, $"quickcss-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.css");
-            await using (var source = typeof(QuickCssViewModel).Assembly.GetManifestResourceStream("NexLauncher.QuickCssExample")
-                ?? throw new InvalidOperationException("Встроенный пример Quick CSS недоступен."))
-            await using (var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true))
-                await source.CopyToAsync(target, _lifetime.Token);
-            FilePath = path; Enabled = true;
+            FilePath = await CreateFileAsync(reuseExisting: false); Enabled = true;
             await ApplyAsync();
         }), CanEdit);
-        OpenCommand = new RelayCommand(() =>
+        OpenCommand = new AsyncRelayCommand(() => GuardAsync(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(FilePath)) FilePath = await CreateFileAsync(reuseExisting: true);
+            var path = Path.GetFullPath(FilePath.Trim());
+            if (!path.EndsWith(".css", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Выбери .css файл.");
+            if (OpenEditorAsync is not null) await OpenEditorAsync(path);
+        }), () => CanEdit() && OpenEditorAsync is not null);
+        OpenExternalCommand = new RelayCommand(() =>
         {
             try
             {
@@ -69,6 +70,29 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
             }
             catch { Status = "Не удалось открыть CSS. Выбери файл или назначь редактор для .css в Windows."; }
         }, () => CanEdit() && !string.IsNullOrWhiteSpace(FilePath));
+    }
+
+    private async Task<string> CreateFileAsync(bool reuseExisting)
+    {
+        var folder = Path.Combine(_dataDirectory, "themes"); Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "quickcss.css");
+        if (File.Exists(path))
+        {
+            if (reuseExisting) return path;
+            path = Path.Combine(folder, $"quickcss-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.css");
+        }
+        await using var source = typeof(QuickCssViewModel).Assembly.GetManifestResourceStream("NexLauncher.QuickCssExample")
+            ?? throw new InvalidOperationException("Встроенный пример Quick CSS недоступен.");
+        await using var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true);
+        await source.CopyToAsync(target, _lifetime.Token); return path;
+    }
+
+    public async Task ApplyEditorFileAsync(string path)
+    {
+        if (!CanEdit()) throw new InvalidOperationException("Дождись завершения другой операции перед применением темы.");
+        IsBusy = true;
+        try { FilePath = path; Enabled = true; await ApplyAsync(); }
+        finally { IsBusy = false; }
     }
 
     public async Task AttachAsync(IQuickCssService service, Func<Task<string?>> pick)
@@ -126,7 +150,7 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
     public void RefreshCommands()
     {
         ApplyCommand?.NotifyCanExecuteChanged(); ReloadCommand?.NotifyCanExecuteChanged();
-        BrowseCommand?.NotifyCanExecuteChanged(); OpenCommand?.NotifyCanExecuteChanged();
+        BrowseCommand?.NotifyCanExecuteChanged(); OpenCommand?.NotifyCanExecuteChanged(); OpenExternalCommand?.NotifyCanExecuteChanged();
         CreateExampleCommand?.NotifyCanExecuteChanged();
     }
     public void Dispose()

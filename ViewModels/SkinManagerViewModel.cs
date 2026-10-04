@@ -66,6 +66,31 @@ public sealed partial class SkinManagerViewModel : ObservableObject, IDisposable
         foreach (var name in new[] { nameof(Username), nameof(AccountType), nameof(IsLocal), nameof(HasAccount), nameof(ApplyLabel), nameof(ResetLabel), nameof(Scope) }) OnPropertyChanged(name);
         RefreshCommands();
     }
+
+    /// <summary>Import a source skin as a draft. Only the existing ApplyCommand changes the account.</summary>
+    public async Task<bool> PrepareDraftAsync(SkinImage image, SkinModel model)
+    {
+        if (_account is null || !IsEditable) return false;
+        var prepared = false; var generation = _generation;
+        await _run(async token =>
+        {
+            if (_disposed || generation != _generation || _account is null) return;
+            using var request = CancellationTokenSource.CreateLinkedTokenSource(token);
+            _request = request; IsBusy = true;
+            try
+            {
+                var clean = await Task.Run(() => _validator.Validate(image.Png, request.Token), request.Token);
+                clean = clean with { Legacy = clean.Legacy || image.Legacy };
+                SkinValidator.ValidateModel(clean, model);
+                if (_disposed || generation != _generation || request.IsCancellationRequested) return;
+                _draft = clean; PreviewImage = clean; SelectedModel = Models[(int)model]; IsOpen = true;
+                Status = "Скин из библиотеки подготовлен. Проверь аккаунт и модель, затем нажми «" + ApplyLabel + "».";
+                prepared = true;
+            }
+            finally { if (ReferenceEquals(_request, request)) { _request = null; IsBusy = false; } RefreshCommands(); }
+        });
+        return prepared;
+    }
     private Task RefreshAsync() => RunAsync((account, token) => _service.GetAsync(account, token), "Скин аккаунта обновлён.", "Local Skin загружен с этого устройства.");
     private Task RunAsync(Func<LauncherAccount, CancellationToken, Task<AccountSkin>> action, string microsoftMessage, string localMessage) => _run(async outerToken =>
     {

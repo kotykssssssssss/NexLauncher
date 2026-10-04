@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models" xmlns:views="using:NexLauncher.Views"
+             x:Class="NexLauncher.Views.SkinCatalogView" x:DataType="vm:SkinCatalogViewModel" x:CompileBindings="True">
+    <Grid Classes="qc-skin-catalog" RowDefinitions="Auto,Auto,Auto,*">
+        <StackPanel Spacing="6" Margin="0,0,0,12">
+            <TextBlock Text="Скины" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Source.Name}" Foreground="{DynamicResource NxAccentBrush}"/>
+            <TextBlock Text="{Binding Source.Description}" Classes="caption" TextWrapping="Wrap"/>
+            <Expander Header="Где найти PNG для импорта" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Эти ссылки открывают сайты в обычном браузере. Скачанный PNG импортируй в библиотеку. Это не автоматический поиск по их каталогам." Classes="caption" TextWrapping="Wrap"/>
+                    <WrapPanel>
+                        <Button Content="NameMC ↗" Classes="quiet" Command="{Binding OpenSourceCommand}" CommandParameter="namemc" Margin="0,0,20,0"/>
+                        <Button Content="SkinMC ↗" Classes="quiet" Command="{Binding OpenSourceCommand}" CommandParameter="skinmc" Margin="0,0,20,0"/>
+                        <Button Content="MineSkin ↗" Classes="quiet" Command="{Binding OpenSourceCommand}" CommandParameter="mineskin"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,8">
+            <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#EDB2AA" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Status}" IsVisible="{Binding HasStatus}" Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,8" IsVisible="{Binding IsSearching}">
+            <ProgressBar IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <Button Grid.Column="1" Content="Отменить" Classes="quiet" Command="{Binding CancelCommand}"/>
+        </Grid>
+        <Grid Grid.Row="3" IsVisible="{Binding IsBrowsing}" RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+                <TextBox Text="{Binding Query}" MaxLength="100" PlaceholderText="Поиск по названию в моей библиотеке…" IsEnabled="{Binding IsEditable}"/>
+                <Button Grid.Column="1" Content="Найти" Command="{Binding SearchCommand}" Margin="8,0"/>
+                <Button Grid.Column="2" Content="Импорт PNG…" Command="{Binding ImportCommand}"/>
+            </Grid>
+            <ScrollViewer Grid.Row="1" x:Name="CardsScroll" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <StackPanel IsVisible="{Binding IsEmpty}" Spacing="8" Margin="12,24">
+                        <TextBlock Text="Скинов не найдено" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="Импортируй свой PNG или измени поисковый запрос. Скины сохраняются здесь независимо от аккаунта и сборки." Classes="caption" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <ItemsControl x:Name="SkinCards" ItemsSource="{Binding Results}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel HorizontalAlignment="Left"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SkinCatalogCardViewModel">
+                                <StackPanel Width="188" Margin="0,0,12,12" Spacing="4">
+                                    <Button Classes="skin-card qc-skin-card" Command="{ReflectionBinding $parent[UserControl].DataContext.DetailsCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="10">
+                                        <StackPanel Spacing="6">
+                                            <Image Source="{Binding Thumbnail}" Height="168" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None"/>
+                                            <TextBlock Text="{Binding Item.Name}" FontWeight="SemiBold" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Item.Name}"/>
+                                            <TextBlock Text="{Binding Item.ModelLabel}" Classes="caption"/>
+                                            <TextBlock Text="{Binding Notice}" Classes="caption" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="Подробнее →" Foreground="{DynamicResource NxAccentBrush}" FontSize="12"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="Сохранить PNG…" Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCardCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch" MinHeight="32" Padding="8,6"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+                <TextBlock Text="{Binding PageLabel}" Classes="caption" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="← Назад" Command="{Binding PreviousCommand}" Margin="8,0"/>
+                <Button Grid.Column="2" Content="Далее →" Command="{Binding NextCommand}"/>
+            </Grid>
+        </Grid>
+        <ScrollViewer Grid.Row="3" IsVisible="{Binding IsDetails}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12">
+                <Button Content="← В библиотеку" Command="{Binding BackCommand}" HorizontalAlignment="Left"/>
+                <Border Classes="card qc-skin-details" Padding="18">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="{Binding SelectedItem.Name}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="Источник: моя локальная библиотека. Название взято из имени импортированного файла; автор неизвестен." Classes="caption" TextWrapping="Wrap"/>
+                        <Grid x:Name="DetailsLayout" ColumnDefinitions="*,300" RowDefinitions="Auto,Auto">
+                            <StackPanel x:Name="DetailsPreview" Spacing="6">
+                                <views:SkinPreview Skin="{Binding PreviewImage}" Model="{Binding PreviewModel}" Height="340" RenderOptions.BitmapInterpolationMode="None"/>
+                                <TextBlock Text="{Binding PreviewHint}" Classes="caption" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel x:Name="DetailsActions" Grid.Column="1" Margin="18,0,0,0" Spacing="10">
+                                <TextBlock Text="Модель — выбери вручную" FontWeight="SemiBold"/>
+                                <ComboBox ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding IsEditable}">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="models:SkinModelChoice"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Content="Сохранить модель" Command="{Binding SaveModelCommand}" HorizontalAlignment="Stretch"/>
+                                <Button Content="Сохранить PNG…" Command="{Binding DownloadCommand}" HorizontalAlignment="Stretch"/>
+                                <TextBlock Text="Аккаунт для применения" FontWeight="SemiBold"/>
+                                <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding TargetAccount}" PlaceholderText="Добавь аккаунт в настройках" IsEnabled="{Binding IsEditable}">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="models:LauncherAccount"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Text="{Binding AccountScope}" Classes="caption" TextWrapping="Wrap"/>
+                                <Button Content="В Skin Manager →" Classes="primary" Command="{Binding UseCommand}" HorizontalAlignment="Stretch"/>
+                                <Button Content="Удалить из библиотеки…" Command="{Binding RemoveCommand}" HorizontalAlignment="Stretch"/>
+                                <StackPanel IsVisible="{Binding ShowRemoveConfirmation}" Spacing="6">
+                                    <TextBlock Text="Удалить эту запись? Сохранённые скины аккаунтов и исходный PNG останутся." Classes="caption" TextWrapping="Wrap"/>
+                                    <Button Content="Удалить запись" Command="{Binding ConfirmRemoveCommand}" HorizontalAlignment="Stretch"/>
+                                    <Button Content="Оставить" Command="{Binding KeepCommand}" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingDetails}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="3" Background="#CC181B1D" IsVisible="{Binding IsBusy}" Padding="24" CornerRadius="12">
+            <StackPanel Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Скины…" HorizontalAlignment="Center"/>
+                <ProgressBar IsIndeterminate="True" Width="200"/>
+                <Button Content="Отменить" Command="{Binding CancelCommand}" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
