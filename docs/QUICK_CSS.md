@@ -80,6 +80,7 @@ Quick CSS — небольшой CSS-подобный язык для внешн
 | `#play-button` | Кнопка установки / запуска выбранной сборки |
 | `#instance-card` | Карточка выбранной сборки на странице игры |
 | `#account-panel` | Панель аккаунта в верхней части окна |
+| `#skin-panel` | Карточка Skin Manager в настройках аккаунтов |
 | `#log-panel` | Карточка журнала запуска |
 | `#modrinth` | Панель всей рабочей области Modrinth |
 | `#modrinth-filters` | Карточка фильтров Modrinth |
@@ -118,7 +119,7 @@ Modrinth search/details и установка loaders используют то�
 | `background-position` | `center`, `top`, `bottom`, `left`, `right` | В том же правиле, где `background-image` |
 | `background-opacity` | Число 0–1 | В том же правиле, где `background-image`; прозрачность только изображения |
 
-`#content` и `#modrinth` — обычные панели Avalonia: `padding`, `border-color`, `border-width` и `border-radius` для них не поддерживаются. Текстовые селекторы (`text`, `.title`, `.muted`, `.text-muted`, `.caption`) поддерживают `padding`, но не свойства рамки. Все карточки, `#sidebar`, `#instance-card`, `#account-panel`, `#log-panel`, `#modrinth-filters`, `#project-header`, `#project-description` являются панелями-рамками и поддерживают эти свойства. `.project-card` поддерживает свойства кнопок и `:hover` / `:disabled`.
+`#content` и `#modrinth` — обычные панели Avalonia: `padding`, `border-color`, `border-width` и `border-radius` для них не поддерживаются. Текстовые селекторы (`text`, `.title`, `.muted`, `.text-muted`, `.caption`) поддерживают `padding`, но не свойства рамки. Все карточки, `#sidebar`, `#instance-card`, `#account-panel`, `#skin-panel`, `#log-panel`, `#modrinth-filters`, `#project-header`, `#project-description` являются панелями-рамками и поддерживают эти свойства. `.project-card` поддерживает свойства кнопок и `:hover` / `:disabled`.
 
 Для `padding`, `margin`, `border-width` порядок обычный CSS:
 

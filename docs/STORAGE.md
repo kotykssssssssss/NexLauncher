@@ -60,6 +60,15 @@ Java/RAM и выбранная сборка сохраняются. Формат
 
 Журнал восстановления отдельных модов описан в [MODRINTH.md](MODRINTH.md).
 
+## Скины
+
+Local Skin хранится отдельно от игр в `%LOCALAPPDATA%\NexLauncher\skins\<hash(type:id)>`:
+managed PNG и атомарная metadata версии 1 с моделью и SHA256. Исходный путь импорта
+не сохраняется; новый instances root не перемещает skin. Отсутствие этой папки
+не требует migration аккаунтов. Corrupt metadata сохраняется для диагностики.
+Microsoft-скин хранится в самом Minecraft-аккаунте, токены остаются только в DPAPI
+vault. Installer/uninstall не удаляет папку skins. См. [SKINS.md](SKINS.md).
+
 ## Installer, Portable и обновления
 
 Installer ставит binaries в `%LOCALAPPDATA%\Programs\NexLauncher` для текущего

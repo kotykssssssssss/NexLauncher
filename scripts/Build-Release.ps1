@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param()
+param([string]$OutputName = '')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if (!$IsWindows -or ![Environment]::Is64BitProcess) { throw 'Use 64-bit PowerShell 7 on Windows.' }
@@ -12,7 +12,8 @@ $artifacts = Join-Path $repo '.artifacts'
 $run = Join-Path $artifacts ('release-builds/' + $version + '-' + [Guid]::NewGuid().ToString('N'))
 $publish = Join-Path $run 'publish'
 $payload = Join-Path $run 'payload'
-$output = Join-Path $artifacts ('releases/v' + $version)
+if ($OutputName -and $OutputName -notmatch '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$') { throw 'OutputName must be a simple directory label (letters, numbers, underscore or hyphen).' }
+$output = Join-Path $artifacts ('releases/' + $(if ($OutputName) { $OutputName } else { 'v' + $version }))
 $logs = Join-Path $run 'logs'
 New-Item -ItemType Directory -Force $publish, $payload, $output, $logs | Out-Null
 function Invoke-Dotnet([string]$Name, [string[]]$Arguments) {

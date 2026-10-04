@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models" xmlns:views="using:NexLauncher.Views"
+             x:Class="NexLauncher.Views.SkinManagerView" x:DataType="vm:SkinManagerViewModel" x:CompileBindings="True">
+    <Border Classes="card qc-skin-panel" Padding="20">
+        <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4"><TextBlock Text="Скин" FontSize="20" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Username}" FontWeight="SemiBold"/><TextBlock Text="{Binding AccountType}" Classes="caption"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Закрыть" Command="{Binding CloseCommand}" Classes="quiet" VerticalAlignment="Top"/>
+            </Grid>
+            <TextBlock Text="{Binding Scope}" Classes="caption" TextWrapping="Wrap"/>
+            <Grid x:Name="SkinLayout" ColumnDefinitions="*,320" RowDefinitions="Auto,Auto">
+                <StackPanel x:Name="PreviewPanel" Spacing="4">
+                    <views:SkinPreview x:Name="PlayerPreview" Skin="{Binding PreviewImage}" Model="{Binding PreviewModel}" Height="340" RenderOptions.BitmapInterpolationMode="None"/>
+                    <TextBlock Text="{Binding PreviewHint}" Classes="caption" TextWrapping="Wrap"/>
+                    <TextBlock Text="Перетаскивай для поворота · колесо для масштаба" Classes="caption" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel x:Name="SkinActions" Grid.Column="1" Margin="20,0,0,0" Spacing="12">
+                    <TextBlock Text="Модель игрока" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{x:Static vm:SkinManagerViewModel.Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding IsEditable}">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="models:SkinModelChoice"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="Загрузить PNG…" Command="{Binding UploadCommand}" HorizontalAlignment="Stretch"/>
+                    <Button Command="{Binding ApplyCommand}" Classes="primary" HorizontalAlignment="Stretch"><TextBlock Text="{Binding ApplyLabel}" TextWrapping="Wrap" TextAlignment="Center"/></Button>
+                    <Button Command="{Binding ResetCommand}" HorizontalAlignment="Stretch"><TextBlock Text="{Binding ResetLabel}" TextWrapping="Wrap" TextAlignment="Center"/></Button>
+                    <Button Content="Обновить" Command="{Binding RefreshCommand}" HorizontalAlignment="Stretch"/>
+                    <TextBlock Text="PNG 64×64; legacy 64×32 — Classic. Максимум 256 КБ. Прозрачность внешнего слоя поддерживается." Classes="caption" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Status}" TextWrapping="Wrap"/>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"/>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

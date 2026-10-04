@@ -49,6 +49,9 @@ internal static class LocalAccountChecks
         var session = await service.RestoreAsync(default);
         check(session?.Username == "Solo_Player" && session.UUID == first.Uuid,
             "local restore returns the stored identity without OAuth refresh");
+        await Rejects<InvalidOperationException>(() => service.GetSessionForAccountAsync(first.Id, default), check,
+            "local account cannot request Microsoft skin credentials");
+        check(microsoft.TotalInteractions == 0, "rejected local skin credential request never accesses Microsoft provider");
         await service.SelectAccountAsync(first.Id, default);
         var repeated = await service.CreateLocalAccountAsync("Solo_Player", default);
         check(repeated.Id == first.Id && service.Accounts.Count == 1,

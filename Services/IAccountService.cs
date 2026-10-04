@@ -15,6 +15,12 @@ public interface IMicrosoftAccountService
     Task InitializeAsync(CancellationToken cancellationToken);
     Task<MSession> SignInAsync(CancellationToken cancellationToken);
     Task<MSession?> RestoreAsync(CancellationToken cancellationToken);
+    /// <summary>Refresh a saved Microsoft account without changing the active launch account.</summary>
+    async Task<MSession> GetSessionForAccountAsync(string id, CancellationToken token)
+    {
+        if (id != ActiveAccountId) throw new System.InvalidOperationException("Выбери этот Microsoft-аккаунт или используй provider с поддержкой нескольких аккаунтов.");
+        return await RestoreAsync(token) ?? throw new System.InvalidOperationException("Сессия Microsoft недоступна.");
+    }
     Task SelectAccountAsync(string id, CancellationToken cancellationToken);
     Task RemoveAccountAsync(string id, CancellationToken cancellationToken);
     /// <summary>Removes the active account and its local credentials; other accounts remain saved.</summary>

@@ -40,6 +40,8 @@ Windows 11, а Installer при необходимости запускает о
   Client ID, несколько аккаунтов, выбор активного, обновление сессии и удаление.
 - Локальные профили: имя без Microsoft-входа, стабильный offline UUID, общий список
   с Microsoft-аккаунтами и сохранение активного профиля.
+- Skin Manager: Microsoft account-level upload/reset, Classic/Slim, поворот и масштаб
+  preview; Local Skin хранится **только в NexLauncher**, без скрытых клиентских модов.
 - Quick CSS: пользовательские цвета, фоны PNG/JPEG, типографика, отступы,
   скругления и состояния controls, перезагрузка и автообновление.
 - Закрытие лаунчера не завершает уже запущенный процесс игры.
@@ -54,6 +56,7 @@ Windows 11, а Installer при необходимости запускает о
 - [Quick CSS: полный справочник, ограничения и примеры](docs/QUICK_CSS.md).
 - [Готовая тема Plum Evening](Assets/quickcss.example.css).
 - [Локальные и Microsoft-аккаунты: создание, выбор, хранение](docs/ACCOUNTS.md).
+- [Скины: использование, Microsoft API и честные ограничения Local Skin](docs/SKINS.md).
 - [Microsoft authentication, защищённый кеш и ручные проверки](docs/MICROSOFT_AUTH.md).
 - [Загрузчики: источники, установка, Java и ограничения](docs/MOD_LOADERS.md).
 - [Modrinth: моды, dependencies, modpacks, правила и восстановление](docs/MODRINTH.md).
@@ -107,6 +110,7 @@ CmlLib.Core 4.0.6, Auth.Microsoft 3.3.1 и Avalonia 12.1.0 сохранены.
 - auth/accounts.dat — кеш Microsoft-аккаунтов и внутренний выбор Microsoft-провайдера,
   зашифрованные DPAPI CurrentUser. Прочитать его может текущий пользователь Windows.
 - themes/ — примеры пользовательских CSS-файлов.
+- skins/ — локальные PNG и metadata по стабильному ID аккаунта, без credentials.
 - instances/<guid>/game/ — отдельная игра, миры и настройки каждой сборки.
   Это прежнее место по умолчанию; новые сборки могут находиться в выбранной папке.
 - В папке игры `.nexlauncher/mods.json` — metadata управляемых модов,

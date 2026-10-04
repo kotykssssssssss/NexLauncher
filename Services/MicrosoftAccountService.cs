@@ -71,6 +71,20 @@ public sealed class MicrosoftAccountService : IMicrosoftAccountService
         finally { _operation.Release(); }
     }
 
+    public async Task<MSession> GetSessionForAccountAsync(string id, CancellationToken cancellationToken)
+    {
+        await _operation.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureInitializedAsync(cancellationToken); RequireAccount(id);
+            var result = await _backend.AuthenticateAsync(_snapshot.Copy().Accounts, id, false, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            await CommitAsync(new AccountVaultSnapshot(result.Accounts, _snapshot.ActiveAccountId), cancellationToken);
+            return result.Session;
+        }
+        finally { _operation.Release(); }
+    }
+
     public async Task SelectAccountAsync(string id, CancellationToken cancellationToken)
     {
         await _operation.WaitAsync(cancellationToken);

@@ -37,6 +37,7 @@ public static class QuickCssSelectorCatalog
         ["#play-button"] = new(typeof(Button), "qc-play-button"),
         ["#instance-card"] = new(typeof(Border), "qc-instance-card"),
         ["#account-panel"] = new(typeof(Border), "qc-account-panel"),
+        ["#skin-panel"] = new(typeof(Border), "qc-skin-panel"),
         ["#log-panel"] = new(typeof(Border), "qc-log-panel"),
         ["#modrinth"] = new(typeof(Grid), "qc-modrinth"),
         ["#modrinth-filters"] = new(typeof(Border), "qc-modrinth-filters"),

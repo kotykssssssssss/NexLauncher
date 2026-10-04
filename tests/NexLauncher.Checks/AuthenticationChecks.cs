@@ -53,6 +53,10 @@ internal static class AuthenticationChecks
         check(reloaded.ActiveAccountId == "alpha" && reloaded.Accounts.Count == 2, "selected account restores from persisted state");
         await reloaded.RestoreAsync(default);
         check(backend.LastAccountId == "alpha" && !backend.LastInteractive, "restore uses selected account and silent backend flow");
+        var skinSession = await reloaded.GetSessionForAccountAsync("beta", default);
+        check(skinSession.UUID == "beta" && backend.LastAccountId == "beta" && !backend.LastInteractive && reloaded.ActiveAccountId == "alpha",
+            "skin session refresh targets a saved non-active Microsoft account without changing launch selection");
+        check((await memory.LoadAsync(default)).ActiveAccountId == "alpha", "skin session refresh preserves active account in protected vault metadata");
         backend.NextId = "alpha";
         await reloaded.SignInAsync(default);
         check(reloaded.Accounts.Count == 2, "repeat sign-in replaces the same UUID without duplicate accounts");

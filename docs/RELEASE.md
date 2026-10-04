@@ -1,5 +1,12 @@
 # Windows release v0.1.1-alpha
 
+Skin Manager working tree проверяется отдельно: версия приложения пока сохранена
+`0.1.1-alpha`, следующую публичную версию нужно выбрать перед публикацией.
+Чтобы не заменять уже собранный patch, используй
+`pwsh -NoProfile -File scripts/Build-Release.ps1 -OutputName skin-manager-preview`.
+Artifacts будут в `.artifacts/releases/skin-manager-preview/`, имена файлов берутся
+из текущей версии csproj. Skin Manager manual checklist и ограничения — [SKINS.md](SKINS.md).
+
 Патч поверх `v0.1.0-alpha`: селектор Modrinth Mods/Modpacks показывает номер проекта,
 Minecraft versions и loaders. Подпись выбранной версии содержит полный список,
 release channel и дату. Install/dependency pipeline и форматы пользовательских данных

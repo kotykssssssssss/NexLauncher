@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NexLauncher.Models;
 using NexLauncher.Services;
+using NexLauncher.Services.Skins;
 using NexLauncher.Services.Loaders;
 using NexLauncher.Services.Network;
 using NexLauncher.Services.Storage;
@@ -103,13 +104,17 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand SignInCommand { get; }
     public IAsyncRelayCommand SaveSettingsCommand { get; }
 
-    public MainWindowViewModel(ConfigurationStore store, IMinecraftService minecraft, IAccountService accounts, ILoaderCatalog? loaderCatalog = null, IModrinthService? modrinth = null)
+    public MainWindowViewModel(ConfigurationStore store, IMinecraftService minecraft, IAccountService accounts, ILoaderCatalog? loaderCatalog = null, IModrinthService? modrinth = null, ISkinService? skins = null)
     {
         _store = store;
         _minecraft = minecraft;
         LoaderOptions = new LoaderOptionsViewModel(loaderCatalog ?? new LoaderCatalog(LauncherHttp.Shared), RefreshState);
         InstancesDirectory = Path.Combine(store.DataDirectory, "instances");
-        Accounts = new AccountsViewModel(accounts, RunAccountOperationAsync, () => IsEditable, RefreshState);
+        var skinValidator = new SkinValidator();
+        var skinService = skins ?? new SkinService(new MinecraftSkinService(accounts, MinecraftSkinApi.Shared, LauncherHttp.Shared, skinValidator),
+            new OfflineSkinService(new SkinStorage(store.DataDirectory, skinValidator)));
+        Accounts = new AccountsViewModel(accounts, RunAccountOperationAsync, () => IsEditable, RefreshState,
+            new SkinManagerViewModel(skinService, skinValidator, RunAccountOperationAsync, () => IsEditable));
         QuickCss = new QuickCssViewModel(store.DataDirectory, SaveQuickCssAsync, () => IsEditable);
         QuickCss.PropertyChanged += (_, args) =>
         {

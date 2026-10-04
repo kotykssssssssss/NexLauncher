@@ -44,10 +44,12 @@ public partial class AccountsViewModel : ObservableObject, IDisposable
     public IAsyncRelayCommand CreateLocalCommand { get; }
     public IAsyncRelayCommand ActivateCommand { get; }
     public IAsyncRelayCommand RemoveCommand { get; }
+    public SkinManagerViewModel? Skin { get; }
 
     public AccountsViewModel(IAccountService service, Func<Func<CancellationToken, Task>, Task> run,
-        Func<bool> canEdit, Action changed)
+        Func<bool> canEdit, Action changed, SkinManagerViewModel? skin = null)
     {
+        Skin = skin;
         _service = service; _run = run; _changed = changed;
         AddCommand = new AsyncRelayCommand(() => RunAsync(async token =>
         {
@@ -125,7 +127,7 @@ public partial class AccountsViewModel : ObservableObject, IDisposable
     }
 
     public void SetError(string message) => Status = message;
-    partial void OnSelectedAccountChanged(LauncherAccount? value) => RefreshCommands();
+    partial void OnSelectedAccountChanged(LauncherAccount? value) { Skin?.SetAccount(value); RefreshCommands(); }
     partial void OnLocalUsernameChanged(string value) => LocalError = "";
     partial void OnLocalErrorChanged(string value) => OnPropertyChanged(nameof(HasLocalError));
     partial void OnAvatarChanged(CroppedBitmap? value)
@@ -134,6 +136,7 @@ public partial class AccountsViewModel : ObservableObject, IDisposable
     }
     public void RefreshCommands()
     {
+        Skin?.RefreshCommands();
         AddCommand?.NotifyCanExecuteChanged();
         CreateLocalCommand?.NotifyCanExecuteChanged();
         ActivateCommand?.NotifyCanExecuteChanged();
@@ -170,6 +173,7 @@ public partial class AccountsViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Skin?.Dispose();
         _avatarRequest?.Cancel(); _avatarRequest?.Dispose();
         (Avatar?.Source as IDisposable)?.Dispose();
         Avatar = null;

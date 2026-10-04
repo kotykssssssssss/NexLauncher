@@ -125,6 +125,21 @@ public sealed class AccountService : IAccountService
         finally { _operation.Release(); }
     }
 
+    public async Task<MSession> GetSessionForAccountAsync(string id, CancellationToken cancellationToken)
+    {
+        await _operation.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureLocalInitializedAsync(cancellationToken);
+            if (RequireAccount(id).Type != AccountType.Microsoft)
+                throw new InvalidOperationException("Локальный аккаунт не имеет Microsoft credentials.");
+            await LoadMicrosoftAsync(cancellationToken);
+            var session = await _microsoft.GetSessionForAccountAsync(id, cancellationToken);
+            RefreshMicrosoftProfiles(); return session;
+        }
+        finally { _operation.Release(); }
+    }
+
     public async Task SelectAccountAsync(string id, CancellationToken cancellationToken)
     {
         await _operation.WaitAsync(cancellationToken);

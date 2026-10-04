@@ -18,6 +18,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         viewModel.PickInstancesFolderAsync = PickInstancesFolderAsync;
+        if (viewModel.Accounts.Skin is { } skin) { skin.PickSkinAsync = PickSkinAsync; skin.RefreshCommands(); }
         Opened += async (_, _) =>
         {
 
@@ -36,6 +37,17 @@ public partial class MainWindow : Window
             Title = "Выбрать тему Quick CSS",
             AllowMultiple = false,
             FileTypeFilter = [new FilePickerFileType("Quick CSS") { Patterns = ["*.css"] }]
+        });
+        try { return files.FirstOrDefault()?.TryGetLocalPath(); }
+        finally { foreach (var file in files) file.Dispose(); }
+    }
+
+    private async Task<string?> PickSkinAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Выбрать Minecraft-скин", AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("PNG skin") { Patterns = ["*.png"] }]
         });
         try { return files.FirstOrDefault()?.TryGetLocalPath(); }
         finally { foreach (var file in files) file.Dispose(); }

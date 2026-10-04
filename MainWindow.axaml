@@ -231,9 +231,11 @@
                                 </ComboBox>
                                 <WrapPanel Orientation="Horizontal">
                                     <Button Content="Использовать" Command="{Binding ActivateCommand}" IsVisible="{Binding HasAccount}" Margin="0,0,8,8"/>
+                                    <Button Content="Скин…" Command="{Binding Skin.OpenCommand}" IsVisible="{Binding HasAccount}" Margin="0,0,8,8"/>
 
                                     <Button Content="Выйти / удалить" Command="{Binding RemoveCommand}" IsVisible="{Binding HasAccount}" Margin="0,0,0,8"/>
                                 </WrapPanel>
+                                <views:SkinManagerView DataContext="{Binding Skin}" IsVisible="{Binding IsOpen}"/>
                                 <TextBlock Text="Microsoft Account" FontWeight="SemiBold"/>
                                 <Button Content="Войти через Microsoft" Command="{Binding AddCommand}" HorizontalAlignment="Left"/>
                                 <TextBlock Text="Для игры с авторизованной сессией. Пароль вводится только в окне Microsoft." Classes="caption" TextWrapping="Wrap"/>

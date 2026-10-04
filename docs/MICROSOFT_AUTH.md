@@ -34,6 +34,12 @@ Microsoft backend; локальные имена и общий выбор опи
 
 ## Хранение и безопасность
 
+Skin Manager использует `GetSessionForAccountAsync` для silent refresh конкретного
+сохранённого профиля, сохраняя активную identity запуска. Полученный Minecraft
+bearer передаётся только фиксированному HTTPS Minecraft Services origin для
+profile/upload/reset. Additional OAuth scopes, Client ID/Secret и новый token cache
+не нужны. Формат DPAPI не менялся. Подробности API и ручные проверки: [SKINS.md](SKINS.md).
+
 Файл: `<папка данных NexLauncher>/auth/accounts.dat`.
 Обычно это `%LOCALAPPDATA%/NexLauncher/auth/accounts.dat`.
 
