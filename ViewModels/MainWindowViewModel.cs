@@ -18,6 +18,7 @@ using NexLauncher.Services.Loaders;
 using NexLauncher.Services.Network;
 using NexLauncher.Services.Storage;
 using NexLauncher.Services.Modrinth;
+using NexLauncher.Services.Instances;
 
 namespace NexLauncher.ViewModels;
 
@@ -63,10 +64,15 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsPlayPage => CurrentPage == "play";
     public bool IsInstancesPage => CurrentPage == "instances";
+    public bool IsInstancesSection => IsInstancesPage || IsTransferPage;
     public bool IsSettingsPage => CurrentPage == "settings";
     public bool IsModrinthPage => CurrentPage is "modrinth" or "mods";
     public bool IsSkinsPage => CurrentPage == "skins";
-    public bool IsStandardPage => !IsModrinthPage && !IsSkinsPage;
+    public bool IsTransferPage => CurrentPage == "transfer";
+    public bool IsStandardPage => !IsModrinthPage && !IsSkinsPage && !IsTransferPage;
+    public InstanceTransferViewModel Transfer { get; }
+    public IRelayCommand ExportInstanceCommand { get; }
+    public IRelayCommand ImportInstanceCommand { get; }
     public SkinCatalogViewModel SkinCatalog { get; }
     public bool IsPacksPage => IsModrinthPage;
     public bool CanOpenMods => SelectedInstance is { Loader: not ModLoader.Vanilla };
@@ -128,7 +134,13 @@ public partial class MainWindowViewModel : ObservableObject
         var skinLibrary = new SkinLibrary(store.DataDirectory, skinValidator);
         SkinCatalog = new SkinCatalogViewModel(skinLibrary, skinLibrary, new SkinCatalogPreviewCache(),
             new SkinPngExport(skinValidator), () => IsEditable, PrepareLibrarySkinAsync, AppendLog);
-        Catalog = new ModrinthViewModel(modrinth ?? new ModrinthService(LauncherHttp.Shared), LauncherHttp.Shared, minecraft,
+        var modrinthApi = modrinth ?? new ModrinthService(LauncherHttp.Shared);
+        Transfer = new InstanceTransferViewModel(new InstanceExportService(new ModManager(modrinthApi, LauncherHttp.Shared)),
+            new InstanceImportService(modrinthApi, LauncherHttp.Shared, minecraft), RunOperationAsync, CreateProgress,
+            () => IsEditable, () => InstancesDirectory, () => Instances.Select(x => x.Name).ToArray(), PublishImportedAsync);
+        ExportInstanceCommand = new RelayCommand(() => { Transfer.Open(SelectedInstance, true); CurrentPage = "transfer"; }, () => IsEditable && HasInstance);
+        ImportInstanceCommand = new RelayCommand(() => { Transfer.Open(null, false); CurrentPage = "transfer"; }, () => IsEditable);
+        Catalog = new ModrinthViewModel(modrinthApi, LauncherHttp.Shared, minecraft,
             RunOperationAsync, CreateProgress, () => IsEditable, () => InstancesDirectory, PublishPackAsync, AppendLog);
         Instances.CollectionChanged += (_, _) =>
         {
@@ -229,7 +241,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshState()
     {
-        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(IsSkinsPage), nameof(IsStandardPage), nameof(CanOpenMods),
+        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsInstancesSection), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(IsSkinsPage), nameof(IsTransferPage), nameof(IsStandardPage), nameof(CanOpenMods),
             nameof(HasInstance), nameof(HasNoInstances), nameof(HasAccount), nameof(HasNoAccount), nameof(IsEditable),
             nameof(CanCancel), nameof(ShowProgress), nameof(IsInstalled), nameof(AccountName), nameof(InstanceTitle),
             nameof(InstanceDetails), nameof(InstallState), nameof(GameDirectory), nameof(PrimaryButtonText),
@@ -248,6 +260,7 @@ public partial class MainWindowViewModel : ObservableObject
         QuickCss?.RefreshCommands();
         Catalog?.RefreshCommands();
         SkinCatalog?.RefreshCommands();
+        ExportInstanceCommand?.NotifyCanExecuteChanged(); ImportInstanceCommand?.NotifyCanExecuteChanged(); Transfer?.RefreshCommands();
     }
 
     private void FilterVersions()
@@ -511,6 +524,16 @@ public partial class MainWindowViewModel : ObservableObject
         catch { Instances.Remove(instance); SelectedInstance = previous; throw; }
         Notice = "Modpack установлен: " + instance.Name + ". Выбери «Играть» для запуска.";
         RefreshState();
+    }
+
+    private async Task PublishImportedAsync(GameInstance instance, CancellationToken token)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        { await Dispatcher.UIThread.InvokeAsync(() => PublishImportedAsync(instance, token)); return; }
+        if (Instances.Any(x => x.Name.Equals(instance.Name, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Сборка с таким именем уже есть. Выбери другое имя.");
+        await PublishPackAsync(instance, token);
+        Notice = "Instance импортирован: " + instance.Name + ". Выбери «Играть» для запуска.";
     }
 
     private void AppendLog(string message)

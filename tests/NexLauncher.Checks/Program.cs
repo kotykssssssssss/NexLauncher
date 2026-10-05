@@ -43,6 +43,7 @@ internal static class Program
                 await CheckBackendGuards();
                 await RenderWindow();
                 await ModdedChecks.RunAsync(Root, Check);
+                await InstanceTransferChecks.RunAsync(Root, Check);
                 await ProjectDetailsChecks.RunAsync(Root, Check);
                 ModrinthVersionDisplayChecks.Run(Check);
                 await ModrinthBrowserChecks.RunAsync(Root, Check);

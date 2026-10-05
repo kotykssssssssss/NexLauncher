@@ -36,6 +36,9 @@ public partial class MainWindow : Window
         viewModel.SkinCatalog.PickImportAsync = PickSkinAsync;
         viewModel.SkinCatalog.PickExportAsync = SaveSkinAsync;
         viewModel.SkinCatalog.RefreshCommands();
+        viewModel.Transfer.PickPackageAsync = PickInstancePackageAsync;
+        viewModel.Transfer.SavePackageAsync = SaveInstancePackageAsync;
+        viewModel.Transfer.RefreshCommands();
         Opened += async (_, _) =>
         {
 
@@ -92,6 +95,28 @@ public partial class MainWindow : Window
             Title = "Сохранить Minecraft-скин", SuggestedFileName = suggestedName, DefaultExtension = "png",
             ShowOverwritePrompt = true,
             FileTypeChoices = [new FilePickerFileType("PNG skin") { Patterns = ["*.png"] }]
+        });
+        try { return file?.TryGetLocalPath(); }
+        finally { file?.Dispose(); }
+    }
+
+    private async Task<string?> PickInstancePackageAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import NexLauncher Instance", AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("NexLauncher instance") { Patterns = ["*.nexpack"] }]
+        });
+        try { return files.FirstOrDefault()?.TryGetLocalPath(); }
+        finally { foreach (var file in files) file.Dispose(); }
+    }
+    private async Task<string?> SaveInstancePackageAsync()
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export NexLauncher Instance", SuggestedFileName = "instance.nexpack", DefaultExtension = "nexpack",
+            ShowOverwritePrompt = true,
+            FileTypeChoices = [new FilePickerFileType("NexLauncher instance") { Patterns = ["*.nexpack"] }]
         });
         try { return file?.TryGetLocalPath(); }
         finally { file?.Dispose(); }

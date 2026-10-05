@@ -27,7 +27,7 @@
                             <TextBlock Text="Играть"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="nav" Classes.active="{Binding IsInstancesPage}" Command="{Binding NavigateCommand}" CommandParameter="instances">
+                    <Button Classes="nav" Classes.active="{Binding IsInstancesSection}" Command="{Binding NavigateCommand}" CommandParameter="instances">
                         <StackPanel Orientation="Horizontal" Spacing="14">
                             <PathIcon Width="15" Height="15" Data="M 1,1 L 8,1 L 8,8 L 1,8 Z M 11,1 L 18,1 L 18,8 L 11,8 Z M 1,11 L 8,11 L 8,18 L 1,18 Z M 11,11 L 18,11 L 18,18 L 11,18 Z"/>
                             <TextBlock Text="Сборки"/>
@@ -73,6 +73,10 @@
             </Grid>
             <Grid Grid.Row="1" IsVisible="{Binding IsSkinsPage}">
                 <views:SkinCatalogView DataContext="{Binding SkinCatalog}"/>
+            </Grid>
+            <Grid Grid.Row="1" IsVisible="{Binding IsTransferPage}" RowDefinitions="Auto,*">
+                <Button Content="← Сборки" Command="{Binding NavigateCommand}" CommandParameter="instances" IsEnabled="{Binding IsEditable}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+                <views:InstanceTransferView Grid.Row="1" DataContext="{Binding Transfer}"/>
             </Grid>
             <ScrollViewer Grid.Row="1" IsVisible="{Binding IsStandardPage}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="18" Margin="0,0,4,16">
@@ -138,6 +142,10 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="Мои сборки" Classes="title"/>
                             <TextBlock Text="Отдельное место для каждого мира." Classes="muted"/>
+                            <WrapPanel>
+                                <Button Content="Import Instance…" Command="{Binding ImportInstanceCommand}" Margin="0,0,8,8"/>
+                                <Button Content="Export / Share выбранную…" Command="{Binding ExportInstanceCommand}" Margin="0,0,0,8"/>
+                            </WrapPanel>
                         </StackPanel>
                         <ListBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}"
                                  IsEnabled="{Binding IsEditable}" IsVisible="{Binding HasInstance}"

@@ -9,7 +9,7 @@
 loader, номер релиза и полные metadata выбранной версии. Новых крупных функций нет.
 
 Этот абзац описывает исходный патч. Текущее рабочее дерево дополнительно содержит
-Skin Manager, редактор Quick CSS и локальную библиотеку «Скины». Preview artifacts
+Skin Manager, редактор Quick CSS, локальную библиотеку «Скины» и Export/Import instances. Preview artifacts
 собираются в отдельные папки; metadata пока остаётся `0.1.1-alpha`. Версию следующего
 публичного релиза следует выбрать отдельно после ручных проверок.
 
@@ -185,8 +185,15 @@ silent refresh после перезапуска и полноценный иг�
 
 ## Дальше
 
-Перенос существующих сборок, обновление целого modpack и другие loaders остаются
+Перемещение папки существующего instance на другой диск, обновление целого modpack и другие loaders остаются
 за рамками этого этапа. Для Linux/macOS нужен отдельный
 OAuth backend с собственным зарегистрированным Client ID и хранилище секретов ОС;
 границы IAccountService / IMinecraftAuthenticationBackend / IAccountVault
 позволяют добавить их без переписывания UI и механизма запуска.
+
+## Перенос сборок
+
+В разделе **Сборки** доступны **Export / Share** и **Import Instance**: переносимый
+`.nexpack` с exact Modrinth IDs/hashes и явно выбранными local mods/configs/resource
+packs/shaders. Импорт создаёт отдельный instance через staging, без перезаписи
+существующих сборок и без переноса аккаунтов. [Формат, ограничения и инструкция](docs/INSTANCE_TRANSFER.md).

@@ -36,6 +36,7 @@ public static class QuickCssSelectorCatalog
         ["#content"] = new(typeof(Grid), "qc-content"),
         ["#play-button"] = new(typeof(Button), "qc-play-button"),
         ["#instance-card"] = new(typeof(Border), "qc-instance-card"),
+        ["#instance-transfer"] = new(typeof(Border), "qc-instance-transfer"),
         ["#account-panel"] = new(typeof(Border), "qc-account-panel"),
         ["#skin-panel"] = new(typeof(Border), "qc-skin-panel"),
         ["#skin-catalog"] = new(typeof(Grid), "qc-skin-catalog"),

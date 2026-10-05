@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" x:Class="NexLauncher.Views.InstanceTransferView"
+             x:DataType="vm:InstanceTransferViewModel" x:CompileBindings="True">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" Margin="0,0,4,16">
+            <TextBlock Text="{Binding Title}" Classes="title" TextWrapping="Wrap"/>
+            <TextBlock Text="Переносимый .nexpack · без аккаунтов, игровых runtime и абсолютных путей автора" Classes="caption" TextWrapping="Wrap"/>
+            <Border Classes="card qc-instance-transfer">
+                <StackPanel Spacing="12">
+                    <StackPanel IsVisible="{Binding IsExport}" IsEnabled="{Binding IsEditable}" Spacing="8">
+                        <TextBlock Text="Что включить в архив" FontSize="18" FontWeight="SemiBold"/>
+                        <CheckBox Content="Include local/unknown mods (.jar)" IsChecked="{Binding LocalMods}"/>
+                        <CheckBox Content="Configs (config/ и defaultconfigs/)" IsChecked="{Binding Configs}"/>
+                        <CheckBox Content="Resource packs" IsChecked="{Binding ResourcePacks}"/>
+                        <CheckBox Content="Shader packs" IsChecked="{Binding ShaderPacks}"/>
+                        <TextBlock Text="Managed Modrinth JAR не копируются: сохраняются точные project/version IDs и hashes. Без local mods сборка может быть неполной. Configs могут содержать личные данные — проверь их перед передачей." Classes="caption" TextWrapping="Wrap"/>
+                        <Button Content="Подготовить / обновить preview" Command="{Binding PreviewExportCommand}" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <Button Content="Выбрать .nexpack…" Command="{Binding ChoosePackageCommand}" IsVisible="{Binding IsImport}" HorizontalAlignment="Left"/>
+                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Warnings}" IsVisible="{Binding HasWarnings}" Foreground="#E4C992" TextWrapping="Wrap"/>
+                    <StackPanel IsVisible="{Binding IsImport}" IsEnabled="{Binding IsEditable}" Spacing="6">
+                        <TextBlock Text="Новое имя instance"/>
+                        <TextBox Text="{Binding NewName}" MaxLength="60" PlaceholderText="Выбери уникальное имя"/>
+                        <TextBlock Text="Существующие instances не перезаписываются. При совпадении имени Import недоступен — введи другое имя." Classes="caption" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding TargetDirectory}" Classes="caption" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Expander Header="Все включённые / исключённые файлы" IsVisible="{Binding HasPreview}" HorizontalAlignment="Stretch">
+                        <ListBox ItemsSource="{Binding FileList}" MaxHeight="260" Background="Transparent">
+                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                    </Expander>
+                    <TextBlock Text="{Binding Status}" IsVisible="{Binding HasStatus}" Classes="caption" TextWrapping="Wrap"/>
+                    <Button Content="Export / сохранить .nexpack…" Classes="primary" Command="{Binding ExportCommand}" IsVisible="{Binding IsExport}" HorizontalAlignment="Left"/>
+                    <Button Content="Import — создать и установить новый instance" Classes="primary" Command="{Binding ImportCommand}" IsVisible="{Binding IsImport}" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

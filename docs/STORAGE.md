@@ -85,3 +85,11 @@ Setup/uninstall владеют только файлами дистрибути�
 Настройки, аккаунты, CSS и игровые файлы при update/reinstall/uninstall сохраняются.
 Portable обновляется заменой application files после закрытия launcher.
 Форматы settings/accounts в релизном этапе не менялись. Подробнее: [RELEASE.md](RELEASE.md).
+
+## Export / Import
+
+Переносимый `.nexpack` создаётся в явно выбранном пользователем месте. Import создаёт
+НОВУЮ сборку в текущей папке instances с новым ID, используя staging на том же диске.
+Старые instances остаются на своих путях; это не команда перемещения или замены.
+Аккаунты, Java path автора и launcher settings не экспортируются. RAM переносится,
+Java выбирается автоматически. Подробности: [INSTANCE_TRANSFER.md](INSTANCE_TRANSFER.md).
