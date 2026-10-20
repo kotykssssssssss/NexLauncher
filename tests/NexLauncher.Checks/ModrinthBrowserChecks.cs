@@ -170,6 +170,9 @@ internal static class ModrinthBrowserChecks
                 await Until(() => !browser.IsLoadingDetails, 90); await Layout();
                 check(!browser.HasError && browser.HasDetails && browser.Details!.Description.Blocks.Count > 0 && browser.Versions.Count > 0, "live project description and concrete versions render: " + browser.Details?.Project.Title);
                 if (!packs) check(browser.Versions.All(x => ModrinthService.IsCompatible(x, target)), "live Mods version chooser uses exact Minecraft + Fabric compatibility");
+                var readableText = string.Concat(browser.Details!.Description.Blocks.Where(x => x.Kind != DescriptionBlockKind.Code).SelectMany(x => x.Spans).Select(x => x.Text));
+                check(!readableText.Contains("<center>") && !readableText.Contains("<img ") && !readableText.Contains("<!--") && !readableText.Contains("]("),
+                    "live mixed Markdown/HTML description has no raw wrapper, image, comment or linked-badge markup: " + browser.Details.Project.Title);
                 var view = window.GetVisualDescendants().OfType<ModrinthView>().Single();
                 Save(window, directory, packs ? "pack-latest-version" : "mod-latest-version");
                 var chosen = browser.Versions[browser.Versions.Count / 2];
@@ -182,6 +185,16 @@ internal static class ModrinthBrowserChecks
                 Save(window, directory, packs ? "pack-details" : "mod-details");
                 window.Width = 1060; window.Height = 760; await Layout(); Save(window, directory, packs ? "pack-details-small" : "mod-details-small");
                 await ModrinthVersionDisplayChecks.VerifySelectorAsync(window, view, directory, packs ? "pack-small" : "mod-small", check);
+                var disclosure = view.FindControl<Button>("AllMinecraftVersions")!;
+                if (disclosure.IsVisible)
+                {
+                    disclosure.Command!.Execute(null); disclosure.BringIntoView(); await Layout();
+                    var list = view.FindControl<ScrollViewer>("MinecraftVersionList")!;
+                    check(list.IsVisible && list.Bounds.Height <= 240 && browser.Details.MinecraftVersionPreview.Count <= 6,
+                        "live project compatibility uses bounded tags and a scrollable full list: " + browser.Details.Project.Title);
+                    Save(window, directory, packs ? "pack-compatibility" : "mod-compatibility");
+                    disclosure.Command.Execute(null);
+                }
                 if (!packs && installMod)
                 {
                     var mods = Path.Combine(target.GameDirectory, "mods"); Directory.CreateDirectory(mods);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace NexLauncher.Services.QuickCss;
 
@@ -115,7 +116,28 @@ public static class QuickCssParser
                 }
                 if (declarations.Count > 0) result.Add(rule with { Declarations = declarations });
             }
-            return new QuickCssDocument(result, _diagnostics);
+            NexLauncher.Models.HomeLayout? layout = null;
+            if (variables.TryGetValue("--home-layout", out var layoutDeclaration))
+            {
+                if (resolver.TryResolve(layoutDeclaration.Value, out var value, out var error))
+                {
+                    if (QuickCssHomeLayout.TryParse(value, out var parsed)) layout = parsed;
+                    else _diagnostics.Add(new(layoutDeclaration.Line, "--home-layout принимает только default, tiles или list."));
+                }
+                else _diagnostics.Add(new(layoutDeclaration.Line, error));
+            }
+            var appearance = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var option in QuickCssAppearance.Options)
+            {
+                if (!variables.TryGetValue(option.Token, out var declaration)) continue;
+                if (!resolver.TryResolve(declaration.Value, out var value, out var error))
+                    _diagnostics.Add(new(declaration.Line, error));
+                else if (QuickCssAppearance.TryNormalize(option, value, out var normalized)) appearance.Add(option.Token, normalized);
+                else _diagnostics.Add(new(declaration.Line, option.Token + ": " + (option.IsColor ? "ожидается непрозрачный цвет." : option.Hint)));
+            }
+            var rootDeclarations = _rules.Where(x => x.Selectors.Count == 1 && x.Selectors[0] == ":root").SelectMany(x => x.Declarations).ToArray();
+            return new QuickCssDocument(QuickCssAppearance.Rules(appearance).Concat(result).ToArray(), _diagnostics, layout,
+                rootDeclarations.Where(x => x.Property == "--home-layout").ToArray(), appearance, rootDeclarations);
         }
 
         private string RemoveComments(string source)
@@ -161,6 +183,7 @@ public static class QuickCssParser
             var declarations = new List<QuickCssDeclaration>();
             var segmentStart = start;
             char quote = '\0';
+            var parentheses = 0;
             for (var index = start; index <= end; index++)
             {
                 var character = index == end ? ';' : _source[index];
@@ -171,7 +194,12 @@ public static class QuickCssParser
                     continue;
                 }
                 if (character is '\'' or '"') { quote = character; continue; }
+                if (character == '(') parentheses++;
+                if (character == ')') parentheses = Math.Max(0, parentheses - 1);
+                var missingSeparator = character == '\n' && parentheses == 0 && StartsDeclaration(index + 1, end) && _source[segmentStart..index].Contains(':');
+                if (missingSeparator) character = ';';
                 if (character != ';') continue;
+                parentheses = 0;
                 var offset = segmentStart;
                 while (offset < index && char.IsWhiteSpace(_source[offset])) offset++;
                 var text = _source[offset..index].Trim();
@@ -189,6 +217,7 @@ public static class QuickCssParser
                     continue;
                 }
                 var property = text[..colon].Trim();
+                if (missingSeparator) Report(offset, $"Пропущена «;» после «{property}». Добавь её перед следующим свойством.");
                 var custom = property.StartsWith("--", StringComparison.Ordinal);
                 if (!(custom ? IsIdentifier(property.AsSpan(2)) : IsIdentifier(property.AsSpan())))
                 {
@@ -206,9 +235,21 @@ public static class QuickCssParser
                     Report(offset, "!important не поддерживается. Поздние правила переопределяют ранние.");
                     continue;
                 }
-                declarations.Add(new QuickCssDeclaration(custom ? property : property.ToLowerInvariant(), value, _lines[offset]));
+                var finish = index;
+                while (finish > offset && char.IsWhiteSpace(_source[finish - 1])) finish--;
+                declarations.Add(new QuickCssDeclaration(custom ? property : property.ToLowerInvariant(), value, _lines[offset], offset, finish - offset));
             }
             return declarations;
+        }
+
+        private bool StartsDeclaration(int start, int end)
+        {
+            while (start < end && _source[start] is ' ' or '\t' or '\r') start++;
+            var name = start;
+            while (start < end && (char.IsAsciiLetterOrDigit(_source[start]) || _source[start] is '-' or '_')) start++;
+            var finish = start;
+            while (start < end && _source[start] is ' ' or '\t') start++;
+            return finish > name && start < end && _source[start] == ':';
         }
 
         private int ReadBlock(out bool nested, out bool closed)

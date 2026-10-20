@@ -33,8 +33,46 @@
                             <TextBlock Text="Сборки"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="nav" Classes.active="{Binding IsPacksPage}" Command="{Binding NavigateCommand}" CommandParameter="modrinth" Content="Modrinth"/>
-                    <Button Classes="nav" Classes.active="{Binding IsSkinsPage}" Command="{Binding NavigateCommand}" CommandParameter="skins" Content="Скины"/>
+                    <Button Classes="nav" Classes.active="{Binding IsPacksPage}" Command="{Binding NavigateCommand}" CommandParameter="modrinth" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Modrinth">
+                        <Grid ColumnDefinitions="16,*" ColumnSpacing="14">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                <Path Classes="nav-glyph" Width="24" Height="24" StrokeThickness="1.6"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M12 3 L21 8 V17 L12 22 L3 17 V8 Z M3 8 L12 13 L21 8 M12 13 V22 M7.5 5.5 L16.5 10.5"/>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Modrinth" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsSkinsPage}" Command="{Binding NavigateCommand}" CommandParameter="skins" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Скины">
+                        <Grid ColumnDefinitions="16,*" ColumnSpacing="14">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                <Path Classes="nav-glyph" Width="24" Height="24" StrokeThickness="1.6"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M8 3 L3 5 L1 10 L5 12 L7 9 V21 H17 V9 L19 12 L23 10 L21 5 L16 3 C16 8 8 8 8 3 Z"/>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Скины" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsDoctorPage}" Command="{Binding NavigateCommand}" CommandParameter="doctor" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Исправление неполадок">
+                        <Grid ColumnDefinitions="16,*" ColumnSpacing="14">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                <Path Classes="nav-glyph" Width="24" Height="24" StrokeThickness="1.6"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M4 3 H2 V8 C2 15 12 15 12 8 V3 H10 M4 1 V5 M10 1 V5 M7 13 V16 C7 23 20 23 20 16 V14 M23 11 A3 3 0 1 1 17 11 A3 3 0 1 1 23 11 Z"/>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Исправление неполадок" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+                    <Button Classes="nav" Classes.active="{Binding IsStatsPage}" Command="{Binding NavigateCommand}" CommandParameter="stats" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Статистика">
+                        <Grid ColumnDefinitions="16,*" ColumnSpacing="14">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                <Path Classes="nav-glyph" Width="24" Height="24" StrokeThickness="1.6"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M3 3 V21 H22 M8 17 V11 M13 17 V5 M18 17 V9"/>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Статистика" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
                     <Button Classes="nav" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="settings">
                         <StackPanel Orientation="Horizontal" Spacing="14">
                             <PathIcon Width="15" Height="15" Data="M 2,4 L 20,4 L 20,6 L 2,6 Z M 2,10 L 20,10 L 20,12 L 2,12 Z M 2,16 L 20,16 L 20,18 L 2,18 Z M 6,2 L 9,2 L 9,8 L 6,8 Z M 14,8 L 17,8 L 17,14 L 14,14 Z M 7,14 L 10,14 L 10,20 L 7,20 Z"/>
@@ -43,7 +81,6 @@
                     </Button>
                 </StackPanel>
                 <StackPanel Grid.Row="3" Margin="12,0" Spacing="6">
-                    <TextBlock Text="Твой мир. Твои сборки." FontSize="11" Classes="muted"/>
                     <TextBlock Text="{x:Static local:BuildInfo.DisplayName}" FontSize="11" Foreground="#78828D"/>
                 </StackPanel>
             </Grid>
@@ -78,14 +115,16 @@
                 <Button Content="← Сборки" Command="{Binding NavigateCommand}" CommandParameter="instances" IsEnabled="{Binding IsEditable}" HorizontalAlignment="Left" Margin="0,0,0,12"/>
                 <views:InstanceTransferView Grid.Row="1" DataContext="{Binding Transfer}"/>
             </Grid>
+            <Grid Grid.Row="1" IsVisible="{Binding IsDoctorPage}"><views:NexDoctorView DataContext="{Binding Doctor}"/></Grid>
+            <Grid Grid.Row="1" IsVisible="{Binding IsStatsPage}"><views:NexStatsView DataContext="{Binding Stats}"/></Grid>
             <ScrollViewer Grid.Row="1" IsVisible="{Binding IsStandardPage}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="18" Margin="0,0,4,16">
                     <StackPanel IsVisible="{Binding IsPlayPage}" Spacing="22">
                         <StackPanel Spacing="8">
                             <TextBlock Text="{Binding HeroTitle}" Classes="title"/>
-                            <TextBlock Text="Один шаг до следующего приключения." Classes="muted"/>
                         </StackPanel>
-                        <StackPanel Spacing="8" IsVisible="{Binding HasInstance}">
+                        <views:HomeInstancesView/>
+                        <StackPanel Spacing="8" IsVisible="{Binding ShowDefaultHomeSelector}">
                             <TextBlock Text="Выбранная сборка" Classes="caption"/>
                             <ComboBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" IsEnabled="{Binding IsEditable}">
                                 <ComboBox.ItemTemplate>
@@ -95,7 +134,7 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                         </StackPanel>
-                        <Border Classes="card qc-instance-card">
+                        <Border Classes="card qc-instance-card" IsVisible="{Binding IsDefaultHomeLayout}">
                             <StackPanel Spacing="22">
                                 <Grid ColumnDefinitions="Auto,*">
                                     <Border Width="56" Height="56" Background="#293D35" CornerRadius="12" Margin="0,0,16,0">
@@ -118,7 +157,7 @@
                                 </Grid>
                             </StackPanel>
                         </Border>
-                        <WrapPanel IsVisible="{Binding HasInstance}">
+                        <WrapPanel IsVisible="{Binding ShowDefaultHomeSelector}">
                             <Button Content="Моды" Command="{Binding NavigateCommand}" CommandParameter="mods" IsVisible="{Binding CanOpenMods}" Margin="0,0,8,0"/>
                             <Button Content="Настройки сборки" Command="{Binding NavigateCommand}" CommandParameter="settings"/>
                         </WrapPanel>
@@ -198,7 +237,6 @@
                     <StackPanel IsVisible="{Binding IsSettingsPage}" Spacing="22">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Настройки" Classes="title"/>
-                            <TextBlock Text="Всё нужное для комфортной игры." Classes="muted"/>
                         </StackPanel>
                         <Border Classes="card">
                             <StackPanel Spacing="10">
@@ -260,9 +298,18 @@
                             </StackPanel>
                         </Border>
                         <Border Classes="card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Главный экран" FontSize="18" FontWeight="SemiBold"/>
+                                <ComboBox x:Name="HomeLayoutSelector" ItemsSource="{Binding HomeLayouts}" SelectedItem="{Binding SelectedHomeLayout}" IsEnabled="{Binding IsEditable}">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="models:HomeLayoutChoice"><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Text="Сохраняется сразу и синхронизируется с --home-layout в выбранном CSS-файле. Стандартный вид сохраняет привычную карточку запуска." Classes="caption" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <views:AppearanceView DataContext="{Binding QuickCss.Appearance}"/>
+                        <Border Classes="card">
                             <StackPanel DataContext="{Binding QuickCss}" x:DataType="vm:QuickCssViewModel" Spacing="12">
                                 <TextBlock Text="Quick CSS" FontSize="18" FontWeight="SemiBold"/>
-                                <TextBlock Text="Твоя тема поверх стандартного оформления. Цвета, фон, шрифты и детали интерфейса." Classes="muted" TextWrapping="Wrap"/>
                                 <CheckBox Content="Включить Quick CSS" IsChecked="{Binding Enabled}"/>
                                 <TextBox Text="{Binding FilePath}" PlaceholderText="Полный путь к .css файлу"/>
                                 <WrapPanel Orientation="Horizontal">
@@ -282,6 +329,28 @@
                             </StackPanel>
                         </Border>
                         <Button Content="Сохранить настройки" Classes="primary" Command="{Binding SaveSettingsCommand}" HorizontalAlignment="Right"/>
+                        <Border Classes="card">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Статистика и конфиденциальность" FontSize="18" TextWrapping="Wrap"/>
+                                <CheckBox Content="Собирать RAM и CPU Minecraft каждые 5 секунд" IsChecked="{Binding MonitorPerformance}" IsEnabled="{Binding IsEditable}"/>
+                                <TextBlock Text="Переключатель сохраняется кнопкой «Сохранить настройки». История сессий и диагностика хранятся только локально. FPS недоступен без интеграции с клиентом." Classes="caption" TextWrapping="Wrap"/>
+                                <CheckBox Content="Подтверждаю удаление статистики и истории диагностики" IsChecked="{Binding Stats.ConfirmClear}"/>
+                                <Button Content="Удалить историю" Command="{Binding Stats.ClearCommand}" HorizontalAlignment="Left"/>
+                                <TextBlock Text="{Binding Stats.Status}" Classes="caption" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="card qc-application-info">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="О программе" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="{x:Static local:BuildInfo.DisplayName}"/>
+                                <TextBlock Text="Лицензия исходного кода: MIT. Права на Minecraft, моды и другие сторонние материалы остаются у их владельцев." Classes="caption" TextWrapping="Wrap"/>
+                                <TextBlock Text="Источники модов: Modrinth и локальные файлы. CurseForge API не подключён." Classes="caption" TextWrapping="Wrap"/>
+                                <WrapPanel><Button Content="Исходный код ↗" Command="{Binding OpenInformationLinkCommand}" CommandParameter="source" Margin="0,0,8,8"/><Button Content="Сообщить о проблеме ↗" Command="{Binding OpenInformationLinkCommand}" CommandParameter="issues" Margin="0,0,0,8"/></WrapPanel>
+                                <Expander Header="Конфиденциальность и данные" HorizontalAlignment="Stretch">
+                                    <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{x:Static local:ApplicationInformation.PrivacyText}" TextWrapping="Wrap"/></ScrollViewer>
+                                </Expander>
+                            </StackPanel>
+                        </Border>
                         <StackPanel Spacing="5">
                             <TextBlock Text="Папка данных" Classes="caption"/>
                             <TextBlock Text="{Binding DataDirectory}" FontSize="12" Foreground="#7F8A95" TextWrapping="Wrap"/>
@@ -291,6 +360,11 @@
                 </StackPanel>
             </ScrollViewer>
             <StackPanel Grid.Row="2" Spacing="10" Margin="0,12,0,0">
+                <Border Classes="card" IsVisible="{Binding HasCrashNotification}"><StackPanel Spacing="8">
+                    <TextBlock Text="Minecraft завершился с ошибкой" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding CrashNotification.Summary}" TextWrapping="Wrap"/>
+                    <WrapPanel><Button Content="View Diagnosis / Log" Command="{Binding ViewCrashCommand}" Margin="0,0,8,0"/><Button Content="Dismiss" Command="{Binding DismissCrashCommand}"/></WrapPanel>
+                </StackPanel></Border>
                 <Border Classes="card qc-log-panel" IsVisible="{Binding ShowLog}">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto">

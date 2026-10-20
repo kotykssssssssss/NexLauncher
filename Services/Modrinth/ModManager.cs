@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -81,6 +82,35 @@ public sealed class ModManager(IModrinthService api, LauncherHttp http)
                 new Progress<LaunchProgress>(), token).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>Restore only an absent, recorded file. Never overwrite a manual/corrupt replacement.</summary>
+    public async Task RestoreMissingAsync(string game, string projectId, IProgress<LaunchProgress> progress, CancellationToken token)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        string? stage = null;
+        var stageRoot = SafePaths.Resolve(game, ".nexlauncher");
+        try
+        {
+            var before = await LoadAsync(game, token).ConfigureAwait(false);
+            var mod = before.Projects.SingleOrDefault(x => x.Version.ProjectId == projectId) ?? throw new IOException("Мод больше не учтён в metadata.");
+            var destination = SafePaths.Resolve(game, "mods/" + mod.FileName);
+            if (File.Exists(destination)) throw new IOException("Файл уже существует. Автоматическая перезапись запрещена.");
+            var version = await api.VersionAsync(mod.Version.Id, token).ConfigureAwait(false);
+            var file = ModrinthService.PrimaryFile(version, ".jar");
+            if (version.Id != mod.Version.Id || version.ProjectId != mod.Version.ProjectId || file.Filename != mod.FileName ||
+                !file.Hashes.Any(h => mod.Hashes.TryGetValue(h.Key, out var hash) && hash == h.Value))
+                throw new IOException("API metadata не совпадает с сохранённым файлом.");
+            stage = SafePaths.Resolve(stageRoot, ".nex-stage-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(stage);
+            var temporary = SafePaths.Resolve(stage, mod.FileName);
+            await http.DownloadAsync(file.Url, temporary, mod.Hashes, file.Size, ["cdn.modrinth.com"], progress, token).ConfigureAwait(false);
+            using (var archive = ZipFile.OpenRead(temporary))
+                if (archive.Entries.Count == 0) throw new InvalidDataException("Скачанный JAR пуст или повреждён.");
+            if (JsonSerializer.Serialize(await LoadAsync(game, token).ConfigureAwait(false)) != JsonSerializer.Serialize(before)) throw new IOException("Metadata изменилась во время восстановления.");
+            token.ThrowIfCancellationRequested(); Directory.CreateDirectory(SafePaths.Resolve(game, "mods")); SafePaths.NoLinks(destination);
+            File.Move(temporary, destination, false);
+        }
+        finally { try { if (stage is not null) SafePaths.DeleteStaging(stageRoot, stage); } finally { _gate.Release(); } }
     }
 
     private async Task CommitAsync(string game, InstalledMods before, InstalledMods after, IReadOnlyList<InstalledMod> additions,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ namespace NexLauncher.ViewModels;
 
 public sealed partial class QuickCssEditorViewModel : ObservableObject, IDisposable
 {
+    public string SaveButtonLabel => OperatingSystem.IsMacOS() ? "Сохранить · ⌘S" : "Сохранить · Ctrl+S";
     private readonly QuickCssEditorFiles _files;
     private readonly Func<string, Task> _apply;
     private readonly Func<bool> _canApply;
@@ -75,6 +77,33 @@ public sealed partial class QuickCssEditorViewModel : ObservableObject, IDisposa
         catch (Exception ex) { Status = saved ? "Файл сохранён, но применить тему не удалось. Проверь результат Quick CSS в настройках." : Error(ex); return false; }
         finally { IsBusy = false; }
     }
+    public Task UpdateHomeLayoutAsync(NexLauncher.Models.HomeLayout layout) => UpdateTokensAsync(
+        new Dictionary<string, string> { ["--home-layout"] = QuickCssHomeLayout.Token(layout) });
+
+    public async Task UpdateTokensAsync(IReadOnlyDictionary<string, string> values)
+    {
+        if (!CanSave) throw new InvalidOperationException("Дождись загрузки или сохранения CSS-редактора.");
+        IsBusy = true;
+        try
+        {
+            var baseline = _savedText;
+            var saved = await Task.Run(() => QuickCssRootTokens.Rewrite(baseline, values), _lifetime.Token);
+            var file = await _files.SaveAsync(FilePath, saved, _revision, _lifetime.Token);
+            _savedText = file.Text; _revision = file.Revision;
+            // Parse away from the UI, and retry the merge if typing changed the snapshot meanwhile.
+            while (true)
+            {
+                var draft = Text;
+                var rewritten = await Task.Run(() => QuickCssRootTokens.Rewrite(draft, values), _lifetime.Token);
+                if (Text != draft) continue;
+                Text = rewritten;
+                break;
+            }
+            Status = "Параметры оформления обновлены. Остальные несохранённые правки сохранены в черновике.";
+            Changed();
+        }
+        finally { IsBusy = false; }
+    }
     partial void OnTextChanged(string value) { Changed(); ValidationTask = ScheduleValidation(); }
     private Task ScheduleValidation()
     {
@@ -113,7 +142,7 @@ public sealed partial class QuickCssEditorViewModel : ObservableObject, IDisposa
     {
         InvalidDataException => ex.Message,
         FileNotFoundException or DirectoryNotFoundException => "CSS-файл или его папка не найдены. Выбери существующий файл в настройках.",
-        UnauthorizedAccessException => "Нет доступа к CSS-файлу. Проверь разрешения Windows.",
+        UnauthorizedAccessException => "Нет доступа к CSS-файлу. Проверь права доступа к файлам.",
         IOException => "Не удалось прочитать или сохранить CSS. Проверь диск; черновик остаётся в редакторе.",
         _ => "Не удалось завершить действие с Quick CSS. Черновик остаётся в редакторе."
     };

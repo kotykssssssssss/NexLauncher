@@ -12,7 +12,7 @@
             </Grid>
             <TextBlock Text="{Binding FilePath}" Classes="caption" TextTrimming="CharacterEllipsis"/>
             <WrapPanel>
-                <Button Content="Сохранить · Ctrl+S" Command="{Binding SaveCommand}" Margin="0,0,8,4"/>
+                <Button Content="{Binding SaveButtonLabel}" Command="{Binding SaveCommand}" Margin="0,0,8,4"/>
                 <Button Content="Сохранить и применить" Command="{Binding SaveApplyCommand}" Classes="primary" Margin="0,0,8,4"/>
                 <Button Content="Перечитать файл" Click="ReloadClicked" IsEnabled="{Binding !IsBusy}" Margin="0,0,0,4"/>
             </WrapPanel>

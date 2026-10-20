@@ -2,8 +2,11 @@
 
 Windows-версия использует поддерживаемый default OAuth flow CmlLib.Core.Auth.Microsoft.
 Пользователю **не нужен собственный Azure/Entra Client ID**. Client Secret не используется.
-Старое поле MicrosoftClientId в settings.json оставлено только для совместимости со старыми настройками;
-новый Windows backend его не читает.
+Поле MicrosoftClientId в settings.json Windows backend не читает.
+На macOS/Linux оно может использоваться разработчиком для проверки MSAL backend;
+публичные сборки должны получать ID владельца при сборке. Своего ID у владельца
+пока нет: browser sign-in не заявляется как готовая функция.
+[Платформы, Keychain/libsecret, регистрация и проверка](PLATFORMS.md).
 
 Microsoft и локальные профили доступны в одном списке. Этот документ описывает
 Microsoft backend; локальные имена и общий выбор описаны в [ACCOUNTS.md](ACCOUNTS.md).
@@ -83,6 +86,11 @@ XboxAuthNet.Game 1.4.1 и XboxAuthNet 3.0.4; signatures дополнительн
   Xbox Basic и `AddForceJEAuthenticator(je => je.WithGameOwnershipChecker().Build())`.
 - `ProtectedAccountVault` — версия формата, безопасная запись и отказ при повреждении.
 - `WindowsAccountDataProtector` — DPAPI CurrentUser.
+- `CmlMinecraftAuthenticationBackend` — общий Xbox/Minecraft pipeline с ownership check.
+- `BrowserMinecraftAuthenticationBackend` — MSAL + системный браузер на macOS/Linux;
+  per-account MSAL cache входит в прежнюю encrypted vault transaction.
+- `SystemAccountDataProtector` / `SystemCredentialKeyStore` — AES-GCM, Keychain/libsecret;
+  открытого fallback нет. При удалении аккаунта его MSAL cache тоже удаляется.
 - `AuthenticationErrors` — сообщения об отмене, просроченной сессии, Xbox-профиле,
   семейных ограничениях, недоступной лицензии/профиле и сетевых сбоях.
 

@@ -11,8 +11,7 @@
             </StackPanel>
             <Button Grid.Column="1" Content="Modrinth ↗" Classes="quiet" Command="{Binding OpenModrinthCommand}" ToolTip.Tip="Проекты предоставлены Modrinth · официальный сайт"/>
         </Grid>
-        <Grid Grid.Row="1" Margin="0,0,0,12">
-            <TextBlock Text="Готовые сборки · каждый modpack устанавливается как новый instance" IsVisible="{Binding IsPacks}" Classes="caption" TextWrapping="Wrap"/>
+        <Grid Grid.Row="1" Margin="0,0,0,12" IsVisible="{Binding IsMods}">
             <StackPanel IsVisible="{Binding IsMods}" Spacing="8">
                 <Grid ColumnDefinitions="Auto,*">
                     <TextBlock Text="Установить в" Classes="caption" VerticalAlignment="Center" Margin="0,0,12,0"/>
@@ -189,7 +188,40 @@
                                     <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="8">
                                         <TextBlock Text="{Binding Loaders}" Classes="caption" TextWrapping="Wrap"/>
                                         <TextBlock Text="{Binding Environment}" Classes="caption" TextWrapping="Wrap"/>
-                                        <Expander Header="Версии Minecraft" HorizontalAlignment="Stretch"><TextBlock Text="{Binding MinecraftVersions}" Classes="caption" TextWrapping="Wrap"/></Expander>
+                                        <Border Classes="qc-project-compatibility" Padding="12" CornerRadius="8" BorderThickness="1" BorderBrush="#3B4148">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock Text="Minecraft" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding MinecraftVersionCountLabel}" Classes="caption" TextWrapping="Wrap"/>
+                                                <ItemsControl ItemsSource="{Binding MinecraftVersionPreview}">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String">
+                                                        <Border Classes="version-chip"><TextBlock Text="{Binding}" TextWrapping="Wrap"/></Border>
+                                                    </DataTemplate></ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Button x:Name="AllMinecraftVersions" Classes="quiet" Command="{Binding ToggleMinecraftVersionsCommand}" IsVisible="{Binding HasMoreMinecraftVersions}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="{Binding AllMinecraftVersionsLabel}"/>
+                                                        <TextBlock Text="⌄" IsVisible="{Binding !AreMinecraftVersionsExpanded}"/>
+                                                        <TextBlock Text="⌃" IsVisible="{Binding AreMinecraftVersionsExpanded}"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                    <ScrollViewer x:Name="MinecraftVersionList" MaxHeight="240" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding AreMinecraftVersionsExpanded}">
+                                                        <ItemsControl ItemsSource="{Binding MinecraftVersionGroups}">
+                                                            <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:MinecraftVersionGroup">
+                                                                <StackPanel Spacing="6" Margin="0,0,0,10">
+                                                                    <TextBlock Text="{Binding Label}" Classes="caption"/>
+                                                                    <ItemsControl ItemsSource="{Binding Versions}">
+                                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String">
+                                                                            <Border Classes="version-chip"><TextBlock Text="{Binding}" TextWrapping="Wrap"/></Border>
+                                                                        </DataTemplate></ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </StackPanel>
+                                                            </DataTemplate></ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                            </StackPanel>
+                                        </Border>
                                         <TextBlock Text="{Binding License}" Classes="caption" TextWrapping="Wrap"/>
                                         <ItemsControl ItemsSource="{Binding Links}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:ProjectLinkViewModel">
                                             <Button Classes="quiet" Command="{Binding Command}"><TextBlock Text="{Binding DisplayLabel}" TextWrapping="Wrap"/></Button>
@@ -201,7 +233,7 @@
                                 <StackPanel DataContext="{Binding Details}" x:DataType="vm:ProjectDetailsViewModel" Spacing="16">
                                     <TextBlock Text="Описание" FontSize="20" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding DescriptionNotice}" IsVisible="{Binding HasDescriptionNotice}" Classes="caption" TextWrapping="Wrap"/>
-                                    <views:ProjectDescriptionView Document="{Binding Description}" OpenLinkCommand="{Binding OpenLinkCommand}"/>
+                                    <views:ProjectDescriptionView Document="{Binding Description}" OpenLinkCommand="{Binding OpenLinkCommand}" MaxWidth="920" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
                         </Grid>

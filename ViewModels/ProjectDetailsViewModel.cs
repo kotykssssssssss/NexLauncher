@@ -14,6 +14,8 @@ public sealed record ProjectLinkViewModel(string Label, Uri Url, IRelayCommand C
     public string DisplayLabel => Label + " ↗ · " + Url.Host;
 }
 
+public sealed record MinecraftVersionGroup(string Label, IReadOnlyList<string> Versions);
+
 public sealed partial class ProjectDetailsViewModel : ObservableObject, IDisposable
 {
     public ModrinthProject Project { get; }
@@ -22,7 +24,13 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject, IDisposa
     public bool HasDescriptionNotice => DescriptionNotice.Length > 0;
     public string Credits { get; }
     public string Statistics => (Project.ProjectType == "modpack" ? "Modpack" : "Мод") + " · " + Project.Downloads.ToString("N0") + " загрузок";
-    public string MinecraftVersions => "Minecraft: " + string.Join(", ", Project.GameVersions);
+    public IReadOnlyList<string> MinecraftVersionPreview { get; }
+    public IReadOnlyList<MinecraftVersionGroup> MinecraftVersionGroups { get; }
+    public string MinecraftVersionCountLabel { get; }
+    public string AllMinecraftVersionsLabel { get; }
+    public bool HasMoreMinecraftVersions { get; }
+    [ObservableProperty] private bool _areMinecraftVersionsExpanded;
+    [RelayCommand] private void ToggleMinecraftVersions() => AreMinecraftVersionsExpanded = !AreMinecraftVersionsExpanded;
     public string Loaders => "Загрузчики: " + string.Join(", ", Project.Loaders);
     public string License => "Лицензия: " + (Project.License?.Id ?? "не указана");
     public string Categories => string.Join(" · ", Project.Categories);
@@ -37,6 +45,18 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject, IDisposa
         string searchAuthor, IReadOnlyList<ModrinthTeamMember> members, Action<string> openLink)
     {
         Project = project; Description = description; DescriptionNotice = descriptionNotice;
+        // Presentation only: never turn discrete API values into a purported continuous range.
+        var versions = (project.GameVersions ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.Ordinal).ToArray();
+        var releases = versions.Where(x => Version.TryParse(x, out _)).OrderByDescending(x => Version.Parse(x)).ToArray();
+        var previews = versions.Except(releases, StringComparer.Ordinal).Reverse().ToArray();
+        MinecraftVersionPreview = (releases.Length > 0 ? releases : previews).Take(6).ToArray();
+        var groups = new List<MinecraftVersionGroup>();
+        if (releases.Length > 0) groups.Add(new("Релизы", releases));
+        if (previews.Length > 0) groups.Add(new("Тестовые и другие", previews));
+        MinecraftVersionGroups = groups;
+        MinecraftVersionCountLabel = versions.Length == 0 ? "Версии не указаны автором" : "Заявлено версий: " + versions.Length;
+        AllMinecraftVersionsLabel = "Все версии (" + versions.Length + ")";
+        HasMoreMinecraftVersions = versions.Length > MinecraftVersionPreview.Count;
         var names = members.Select(x => x.User.Name is { Length: > 0 } name ? name + " (@" + x.User.Username + ")" : x.User.Username).Distinct().ToArray();
         Credits = (searchAuthor.Length == 0 ? "" : "Автор: " + searchAuthor + "\n") +
             (names.Length == 0 ? (searchAuthor.Length == 0 ? "Авторы не указаны в доступных данных." : "") : "Команда: " + string.Join(", ", names));

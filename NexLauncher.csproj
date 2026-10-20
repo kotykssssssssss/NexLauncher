@@ -1,17 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Keep the Windows WebView2 assets on Windows, including when cross-publishing. -->
+    <NexLauncherPlatform Condition="'$(NexLauncherPlatform)' == '' and $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">Windows</NexLauncherPlatform>
+    <NexLauncherPlatform Condition="'$(NexLauncherPlatform)' == '' and '$(RuntimeIdentifier)' != '' and !$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">Unix</NexLauncherPlatform>
+    <NexLauncherPlatform Condition="'$(NexLauncherPlatform)' == '' and '$(OS)' != 'Windows_NT'">Unix</NexLauncherPlatform>
+    <NexLauncherPlatform Condition="'$(NexLauncherPlatform)' == ''">Windows</NexLauncherPlatform>
+    <TargetFramework Condition="'$(NexLauncherPlatform)' == 'Windows'">net10.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(NexLauncherPlatform)' == 'Unix'">net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <Version>0.1.1-alpha</Version>
     <AssemblyVersion>0.1.1.0</AssemblyVersion>
     <FileVersion>0.1.1.0</FileVersion>
     <Product>NexLauncher</Product>
-    <Description>Independent Minecraft Java Edition launcher for Windows</Description>
+    <Description>Independent Minecraft Java Edition launcher for Windows, macOS and Linux</Description>
     <Authors>kotyksssssssss</Authors>
     <Copyright>Copyright (c) 2026 kotyksssssssss</Copyright>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/branding/NexLauncher.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;.artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
 
@@ -28,13 +35,23 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="CmlLib.Core" Version="4.0.6" />
     <PackageReference Include="CmlLib.Core.Auth.Microsoft" Version="3.3.1" />
+    <PackageReference Include="XboxAuthNet.Game.Msal" Version="0.1.3" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.90.0" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.90.0" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageReference Include="Markdig" Version="1.3.2" />
+    <PackageReference Include="AngleSharp" Version="1.8.5" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Public application identifier, never a client secret. Empty until the owner registers it. -->
+    <AssemblyMetadata Include="NexLauncher.MicrosoftClientId" Value="$(NexLauncherMicrosoftClientId)" />
     <EmbeddedResource Include="Assets/quickcss.example.css" LogicalName="NexLauncher.QuickCssExample" />
+    <EmbeddedResource Include="PRIVACY.txt" LogicalName="NexLauncher.Privacy" />
+    <AvaloniaResource Include="Assets/branding/NexLauncher.ico" />
+    <AvaloniaResource Include="Assets/branding/instance-default.png" />
   </ItemGroup>
   <!-- Native NuGet packages carry very large PDBs even with DebugType=None. -->
-  <Target Name="ExcludePublishSymbols" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' == 'true'">
+  <Target Name="ExcludePublishSymbols" AfterTargets="ComputeFilesToPublish" Condition="'$(Configuration)' == 'Release'">
     <ItemGroup>
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
     </ItemGroup>

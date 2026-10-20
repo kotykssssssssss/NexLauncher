@@ -10,6 +10,11 @@ namespace NexLauncher.Services.Storage;
 
 public static class SafePaths
 {
+    // A case-insensitive prefix check is unsafe on a case-sensitive Unix filesystem.
+    public static StringComparison PathComparison => OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    public static StringComparer PathComparer => OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     public static string Resolve(string root, string relative)
     {
         if (string.IsNullOrWhiteSpace(relative) || relative.Contains('\\') || Path.IsPathRooted(relative))
@@ -24,7 +29,7 @@ public static class SafePaths
         }
         var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var destination = Path.GetFullPath(Path.Combine(fullRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
-        if (!destination.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+        if (!destination.StartsWith(fullRoot, PathComparison))
             throw new InvalidDataException("Путь выходит за пределы сборки.");
         NoLinks(destination);
         return destination;
@@ -78,7 +83,7 @@ public static class SafePaths
         if (string.IsNullOrEmpty(instance.GameDirectory)) return Resolve(Path.Combine(dataDirectory, "instances"), relative);
         var path = LocalRoot(instance.GameDirectory);
         var root = Path.GetDirectoryName(Path.GetDirectoryName(path)) ?? throw new InvalidDataException("Некорректная папка сборки.");
-        if (!string.Equals(path, Resolve(root, relative), StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(path, Resolve(root, relative), PathComparison))
             throw new InvalidDataException("Папка сборки должна иметь структуру <root>/<id>/game.");
         return path;
     }
@@ -86,9 +91,13 @@ public static class SafePaths
     public static Task<string> CheckWritableRootAsync(string path, CancellationToken token) => Task.Run(() =>
     {
         token.ThrowIfCancellationRequested();
-        var root = LocalRoot(path);
-        var drive = Path.GetPathRoot(root)!;
+        // Check an unavailable drive before querying attributes of its descendants.
+        // Windows can report AccessDenied for these paths instead of DirectoryNotFound.
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path) || path.StartsWith("\\\\") || path.StartsWith("//", StringComparison.Ordinal))
+            throw new InvalidDataException("Выбери локальную папку с полным путём.");
+        var drive = Path.GetPathRoot(Path.GetFullPath(path))!;
         if (!Directory.Exists(drive)) throw new IOException("Диск папки сборок недоступен.");
+        var root = LocalRoot(path);
         Directory.CreateDirectory(root);
         var probe = Resolve(root, ".nex-write-" + Guid.NewGuid().ToString("N"));
         using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }

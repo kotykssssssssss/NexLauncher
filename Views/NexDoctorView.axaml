@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models"
+             x:Class="NexLauncher.Views.NexDoctorView" x:DataType="vm:NexDoctorViewModel" x:CompileBindings="True">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid Classes="qc-nexdoctor" Margin="0,0,4,16">
+            <StackPanel Spacing="18">
+                <TextBlock Text="Исправление неполадок" Classes="title" TextWrapping="Wrap"/>
+                <Grid ColumnDefinitions="*,Auto"><ComboBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" IsEnabled="{Binding IsEditable}" Margin="0,0,12,0"/><Button Grid.Column="1" Content="Scan Now" Command="{Binding ScanCommand}"/></Grid>
+                <Border Classes="card"><StackPanel Spacing="8"><TextBlock Text="Overview" FontSize="18"/><TextBlock Text="{Binding Health}" FontSize="26"/>
+                    <WrapPanel><TextBlock Text="Errors: "/><TextBlock Text="{Binding Errors}" Margin="0,0,18,0"/><TextBlock Text="Warnings: "/><TextBlock Text="{Binding Warnings}" Margin="0,0,18,0"/><TextBlock Text="Last scan: "/><TextBlock Text="{Binding LastScan}"/></WrapPanel>
+                    <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap"/>
+                    <ProgressBar IsVisible="{Binding IsBusy}" IsIndeterminate="True"/>
+                    <WrapPanel><Button Content="Fix Safe Issues" Command="{Binding FixSafeCommand}" Margin="0,4,8,4"/><Button Content="Моды" Command="{Binding OpenModsCommand}" Margin="0,4,8,4"/><Button Content="Папка сборки" Command="{Binding OpenFolderCommand}" Margin="0,4,8,4"/></WrapPanel>
+                </StackPanel></Border>
+                <TextBlock Text="Detected Issues" FontSize="20"/>
+                <TextBlock Text="Известных проблем не обнаружено. Это не гарантирует отсутствие crash." IsVisible="{Binding NoIssues}" TextWrapping="Wrap" Classes="muted"/>
+                <ListBox ItemsSource="{Binding Issues}" SelectedItem="{Binding SelectedIssue}" MaxHeight="600" Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate><DataTemplate x:DataType="models:DiagnosticIssue"><Border Classes="card qc-diagnostic-issue" Margin="0,0,0,8"><StackPanel Spacing="8">
+                        <TextBlock Text="{Binding Classification}" Classes="caption"/><TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/><TextBlock Text="{Binding Recommendation}" Classes="muted" TextWrapping="Wrap"/>
+                        <Expander Header="Технические доказательства"><TextBlock Text="{Binding Evidence}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"/></Expander>
+                    </StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+                <WrapPanel><Button Content="Исправить выбранную безопасную проблему" Command="{Binding FixSelectedCommand}" Margin="0,0,8,8"/><Button Content="Копировать детали" Command="{Binding CopyCommand}" Margin="0,0,8,8"/></WrapPanel>
+                <Border Classes="card"><StackPanel Spacing="12"><TextBlock Text="Crash History" FontSize="20"/>
+                    <ListBox ItemsSource="{Binding CrashHistory}" SelectedItem="{Binding SelectedCrash}" MaxHeight="260" Background="Transparent"><ListBox.ItemTemplate><DataTemplate x:DataType="models:DoctorReport"><StackPanel Spacing="5"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/><TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Classes="caption"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+                    <Button Content="Открыть игровую сессию" Command="{Binding OpenSessionCommand}" IsVisible="{Binding HasSession}" HorizontalAlignment="Left"/>
+                </StackPanel></Border>
+                <Border Classes="card"><StackPanel Spacing="12"><TextBlock Text="Logs" FontSize="20"/>
+                    <Grid ColumnDefinitions="*,140"><TextBox Text="{Binding Search}" PlaceholderText="Поиск в сохранённом фрагменте…" Margin="0,0,8,0"/><ComboBox Grid.Column="1" ItemsSource="{Binding LogFilters}" SelectedItem="{Binding LogFilter}"/></Grid>
+                    <TextBlock Text="Показывается ограниченный фрагмент соответствующего лога; полный файл доступен отдельно. Фильтр ищет текст ERROR/WARN/INFO." Classes="caption" TextWrapping="Wrap"/>
+                    <TextBox Text="{Binding LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="Consolas" FontSize="12" Height="290"/>
+                    <WrapPanel><Button Content="Открыть исходный лог" Command="{Binding OpenLogCommand}" Margin="0,0,8,8"/><Button Content="Копировать видимый текст" Command="{Binding CopyLogCommand}" Margin="0,0,8,8"/></WrapPanel>
+                </StackPanel></Border>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

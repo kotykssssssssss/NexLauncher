@@ -227,7 +227,7 @@ public sealed partial class SkinCatalogViewModel : ObservableObject, IDisposable
     {
         Error = error is SkinException ? error.Message : error is FileNotFoundException or DirectoryNotFoundException ?
             "Файл скина не найден. Импортируй PNG заново." : error is UnauthorizedAccessException ?
-            "Нет доступа к библиотеке или файлу. Проверь разрешения Windows." :
+            "Нет доступа к библиотеке или файлу. Проверь права доступа к файлам." :
             "Не удалось прочитать или сохранить скин. Исходные файлы оставлены; проверь доступ к диску.";
         _log(LauncherLog.Sanitize(error.ToString()));
     }

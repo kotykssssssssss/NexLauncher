@@ -66,10 +66,10 @@ public sealed class InstanceImportService(IModrinthService api, LauncherHttp htt
             await SafePaths.CheckTreeAsync(instance.GameDirectory, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (Directory.Exists(final) || File.Exists(final)) throw new IOException("Папка нового instance уже существует.");
-            Directory.Move(staged, final); moved = true;
+            await MoveDirectoryAsync(staged, final, token).ConfigureAwait(false); moved = true;
             instance.GameDirectory = SafePaths.Resolve(final, "game");
             try { await publish(instance, CancellationToken.None).ConfigureAwait(false); }
-            catch { Directory.Move(final, staged); moved = false; throw; }
+            catch { await MoveDirectoryAsync(final, staged, CancellationToken.None).ConfigureAwait(false); moved = false; throw; }
             progress.Report(new("Import завершён", 100));
             return instance;
         }
@@ -80,6 +80,20 @@ public sealed class InstanceImportService(IModrinthService api, LauncherHttp htt
             if (!moved || !Directory.Exists(staged)) SafePaths.DeleteStaging(root, stage);
         }
     }, token);
+
+    private static async Task MoveDirectoryAsync(string source, string destination, CancellationToken token)
+    {
+        // Windows can briefly refuse an otherwise valid rename while a newly written tree is
+        // being inspected by another process. Retry only specific OS errors, for at most 600 ms.
+        for (var attempt = 0; ; attempt++)
+        {
+            token.ThrowIfCancellationRequested();
+            SafePaths.NoLinks(source); SafePaths.NoLinks(Path.GetDirectoryName(destination)!);
+            try { Directory.Move(source, destination); return; }
+            catch (IOException ex) when (OperatingSystem.IsWindows() && attempt < 3 && (ex.HResult & 0xffff) is 5 or 32 or 33)
+            { await Task.Delay(100 * (attempt + 1), token).ConfigureAwait(false); }
+        }
+    }
 
     private async Task<InstalledMods> ResolveExactAsync(GameInstance instance, IReadOnlyList<PortableMod> references, CancellationToken token)
     {

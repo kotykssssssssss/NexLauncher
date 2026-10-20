@@ -67,8 +67,13 @@ internal static class ModdedChecks
         await Reject<InvalidDataException>(() => Do(() => SafePaths.Resolve(custom, "mods/COM¹.jar")), check, "Windows superscript device names cannot become download paths");
         var filePath = Path.Combine(root, "not-directory"); await File.WriteAllTextAsync(filePath, "keep");
         await Reject<IOException>(() => SafePaths.CheckWritableRootAsync(filePath, default), check, "unavailable root reports an error and preserves file");
-        var unavailable = Enumerable.Range('D', 23).Select(x => (char)x + ":\\").FirstOrDefault(x => !Directory.Exists(x));
-        if (unavailable is not null) await Reject<IOException>(() => SafePaths.CheckWritableRootAsync(unavailable + "NexLauncher", default), check, "unavailable drive rejected before creation");
+        if (OperatingSystem.IsWindows())
+        {
+            var unavailable = Enumerable.Range('D', 23).Select(x => (char)x + ":\\").FirstOrDefault(x => !Directory.Exists(x));
+            if (unavailable is not null) await Reject<IOException>(() => SafePaths.CheckWritableRootAsync(unavailable + "NexLauncher", default), check, "unavailable drive rejected before creation");
+        }
+        else await Reject<IOException>(() => SafePaths.CheckWritableRootAsync(Path.Combine(filePath, "child"), default), check,
+            "unavailable Unix parent rejected before creation");
         var incompatible = restored.Instances[1]; incompatible.FormatVersion = 999;
         await Reject<InvalidDataException>(() => store.SaveAsync(restored), check, "unknown instance format cannot overwrite settings");
         check(File.ReadAllText(filePath) == "keep", "root validation never deletes user files");

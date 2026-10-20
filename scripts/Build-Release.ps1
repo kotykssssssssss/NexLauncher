@@ -35,12 +35,14 @@ try {
     if ($frameworks.Count -ne 2 -or @($frameworks | Where-Object version -ne '10.0.12').Count -ne 0) { throw 'The self-contained .NET/Windows Desktop runtime version changed. Review the release profile.' }
     Copy-Item -LiteralPath $files[0].FullName -Destination $payload
     Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $payload 'LICENSE.txt')
+    Copy-Item -LiteralPath (Join-Path $repo 'PRIVACY.txt') -Destination (Join-Path $payload 'PRIVACY.txt')
     Copy-Item -LiteralPath (Join-Path $repo 'packaging/PORTABLE-README.txt') -Destination (Join-Path $payload 'README.txt')
     & (Join-Path $PSScriptRoot 'Write-ReleaseNotices.ps1') -AssetsFile (Join-Path $artifacts 'obj/NexLauncher/project.assets.json') -DepsFile (Join-Path $binaryRoot 'NexLauncher.deps.json') -Destination $payload
     & (Join-Path $PSScriptRoot 'Get-ReleaseTools.ps1') -ToolsDirectory (Join-Path $artifacts 'tools')
     $setupArgs = @(('/DAppVersion=' + $version), ('/DNumericVersion=' + $numericVersion), ('/DPayloadDir=' + $payload), ('/DOutputDir=' + $run), ('/DWebViewBootstrapper=' + (Join-Path $artifacts 'tools/MicrosoftEdgeWebview2Setup.exe')), (Join-Path $repo 'packaging/NexLauncher.iss'))
     & (Join-Path $artifacts 'tools/InnoSetup/ISCC.exe') @setupArgs 2>&1 | Tee-Object -FilePath (Join-Path $logs 'installer.log') | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
+    & (Join-Path $PSScriptRoot 'Test-AppIcons.ps1') -ApplicationExe (Join-Path $payload 'NexLauncher.exe') -SetupExe (Join-Path $run "NexLauncher-Setup-v$version.exe")
     $zipName = "NexLauncher-v$version-win-x64.zip"
     $setupName = "NexLauncher-Setup-v$version.exe"
     Compress-Archive -Path (Join-Path $payload '*') -DestinationPath (Join-Path $run $zipName) -CompressionLevel Optimal

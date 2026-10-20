@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NexLauncher
+Comment=Minecraft Java Edition launcher
+Exec=NexLauncher
+Icon=NexLauncher
+Terminal=false
+Categories=Game;
+StartupNotify=true

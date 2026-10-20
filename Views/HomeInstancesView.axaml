@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models"
+             x:Class="NexLauncher.Views.HomeInstancesView" x:DataType="vm:MainWindowViewModel" x:CompileBindings="True">
+    <Grid IsVisible="{Binding !IsDefaultHomeLayout}" Classes="qc-home-instances" RowDefinitions="Auto,Auto">
+        <Border Classes="card qc-instance-card" IsVisible="{Binding HasInstance}" Padding="16" Margin="0,0,0,14">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0" Spacing="5">
+                        <TextBlock Text="{Binding InstanceTitle}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding InstanceDetails}" Classes="caption" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="primary qc-play-button" Content="{Binding PrimaryButtonText}" Command="{Binding PrimaryCommand}" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="{Binding StatusText}" Classes="caption" TextWrapping="Wrap"/>
+                <WrapPanel>
+                    <Button Content="Моды" Classes="quiet" Command="{Binding NavigateCommand}" CommandParameter="mods" IsVisible="{Binding CanOpenMods}" Margin="0,0,16,0"/>
+                    <Button Content="Настройки сборки" Classes="quiet" Command="{Binding NavigateCommand}" CommandParameter="settings" Margin="0,0,16,0"/>
+                    <Button Content="Открыть папку" Classes="quiet" Command="{Binding OpenFolderCommand}"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+        <StackPanel IsVisible="{Binding HasNoInstances}" Spacing="10">
+            <TextBlock Text="Пока нет сборок" FontSize="18"/>
+            <Button Content="Создать или импортировать сборку" Command="{Binding NavigateCommand}" CommandParameter="instances" HorizontalAlignment="Left"/>
+        </StackPanel>
+        <ListBox x:Name="HomeTiles" Classes="home-tiles" IsVisible="{Binding IsTilesHomeLayout}"
+                 Grid.Row="1"
+                 ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" IsEnabled="{Binding IsEditable}"
+                 Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+            <ListBox.ItemTemplate><DataTemplate x:DataType="models:GameInstance">
+                <Border Classes="home-tile" ClipToBounds="True">
+                    <StackPanel>
+                        <Image Source="avares://NexLauncher/Assets/branding/instance-default.png" Height="180" Stretch="Uniform"/>
+                        <StackPanel Margin="10" Spacing="5">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                            <TextBlock Text="{Binding VersionId}" Classes="caption"/>
+                            <TextBlock Text="{Binding Loader}" Classes="caption"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <ListBox x:Name="HomeList" Classes="home-list" IsVisible="{Binding IsListHomeLayout}"
+                 Grid.Row="1"
+                 ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" IsEnabled="{Binding IsEditable}"
+                 Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate><DataTemplate x:DataType="models:GameInstance">
+                <Grid ColumnDefinitions="56,*" Margin="4,6">
+                    <Border Width="44" Height="44" CornerRadius="7" ClipToBounds="True" HorizontalAlignment="Left">
+                        <Image Source="avares://NexLauncher/Assets/branding/instance-default.png" Stretch="UniformToFill"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                        <TextBlock Text="{Binding Details}" Classes="caption" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

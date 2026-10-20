@@ -75,6 +75,14 @@ RAM переносится; абсолютный Java path автора **не �
 
 ## Privacy и права на файлы
 
+После preview экспорт с копиями файлов требует флажок «Я проверил права на передачу
+включённых файлов получателю». Для рецепта без bundled-файлов флажок не требуется.
+При смене instance, параметров или обновлении preview подтверждение сбрасывается.
+Это подтверждение пользователя, а не автоматическая проверка лицензии или
+разрешения автора. Происхождение неизвестного JAR по filename не угадывается.
+Managed Modrinth JAR по-прежнему не вкладываются в архив: сохраняются точные ссылки
+на project/version и hashes. Публичная перепубликация требует отдельной проверки прав.
+
 Это allowlist export, **не ZIP всей папки игры**. Никогда автоматически не копируются:
 accounts/auth vault, launcher config, `.nexlauncher`, game libraries/assets/Java,
 logs, crash reports, saves/worlds, screenshots, server lists, usercache и skins.
@@ -148,7 +156,11 @@ FormatVersion 1 Vanilla instances по-прежнему загружаются �
 - Package максимум 2 ГиБ, manifest 2 МиБ, bundled-файл/managed reference 512 МиБ,
   общий размер файлов и загрузок 4 ГиБ; максимум 8192 bundled entries/обнаруженных
   пользовательских files/directories и 256 managed projects.
-- Для entries больше 1 МиБ compression ratio ограничен 200:1. Это консервативный
+- Для entries больше 1 МиБ compression ratio ограничен 200:1. Export сохраняет
+  большие bundled-файлы без ZIP-сжатия, чтобы легитимные повторяющиеся данные
+  не создавали package, отвергаемый этим ограничением. Маленькие файлы сжимаются.
+  Лимит относительного пути 240 символов относится к пути внутри instance;
+  служебный ZIP-префикс `files/` в него не входит. Это консервативный
   предел: очень сжимаемый легитимный package тоже может быть отклонён.
 - `..`, absolute paths, `\\`, ADS/drive syntax, Windows reserved names, trailing
   dots/spaces, case-insensitive duplicates и file/directory collisions отвергаются.

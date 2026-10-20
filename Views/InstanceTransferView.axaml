@@ -31,6 +31,10 @@
                         </ListBox>
                     </Expander>
                     <TextBlock Text="{Binding Status}" IsVisible="{Binding HasStatus}" Classes="caption" TextWrapping="Wrap"/>
+                    <StackPanel IsVisible="{Binding RequiresDistributionConfirmation}" IsEnabled="{Binding IsEditable}" Spacing="6">
+                        <CheckBox IsChecked="{Binding ConfirmDistributionRights}"><TextBlock Text="Я проверил права на передачу включённых файлов получателю" TextWrapping="Wrap"/></CheckBox>
+                        <TextBlock Text="Архив содержит копии файлов. Этот флажок не заменяет разрешение автора или условия лицензии. Перед публикацией также проверь configs на личные данные." Classes="caption" TextWrapping="Wrap"/>
+                    </StackPanel>
                     <Button Content="Export / сохранить .nexpack…" Classes="primary" Command="{Binding ExportCommand}" IsVisible="{Binding IsExport}" HorizontalAlignment="Left"/>
                     <Button Content="Import — создать и установить новый instance" Classes="primary" Command="{Binding ImportCommand}" IsVisible="{Binding IsImport}" HorizontalAlignment="Stretch"/>
                 </StackPanel>

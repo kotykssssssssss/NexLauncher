@@ -92,7 +92,7 @@ public sealed class LoaderInstaller : ILoaderInstaller
             await SafePaths.CheckTreeAsync(game, token).ConfigureAwait(false);
             var vanilla = await launcher.GetVersionAsync(instance.VersionId, token).ConfigureAwait(false);
             var java = string.IsNullOrWhiteSpace(instance.JavaPath) ? launcher.GetJavaPath(vanilla) : instance.JavaPath;
-            if (string.IsNullOrEmpty(java) || !File.Exists(java)) throw new InvalidOperationException("Не найдена Java для installer. Укажи Java в настройках сборки.");
+            java = MinecraftRuntimePolicy.RequireExecutableJava(java);
             var start = new ProcessStartInfo(java) { WorkingDirectory = stage, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add("-Djava.awt.headless=true");
             start.ArgumentList.Add("-jar"); start.ArgumentList.Add(jar);

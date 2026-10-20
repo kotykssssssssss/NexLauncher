@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" x:Class="NexLauncher.Views.AppearanceView"
+             x:DataType="vm:AppearanceViewModel">
+    <Border Classes="card qc-appearance">
+        <StackPanel Spacing="14" IsEnabled="{Binding IsEditable}">
+            <TextBlock Text="Оформление" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="Цвета, текст и плотность интерфейса. Эти же параметры доступны через --nx-* в Quick CSS. Работает и при выключенном CSS." Classes="muted" TextWrapping="Wrap"/>
+            <WrapPanel>
+                <ComboBox x:Name="AppearancePresetSelector" Width="210" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" Margin="0,0,8,8">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AppearancePreset"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Выбрать пресет" Command="{Binding PresetCommand}" Margin="0,0,8,8"/>
+            </WrapPanel>
+            <ItemsControl ItemsSource="{Binding Fields}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AppearanceFieldViewModel">
+                        <StackPanel Width="240" Margin="0,0,16,18" Spacing="5">
+                            <TextBlock Text="{Binding Label}" FontWeight="Medium"/>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border IsVisible="{Binding IsColor}" Background="{Binding Preview}" Width="34" Height="34" CornerRadius="6" BorderBrush="#69717A" BorderThickness="1" Margin="0,0,8,0"/>
+                                <TextBox Grid.Column="1" Text="{Binding Value}" ToolTip.Tip="{Binding Token}"/>
+                            </Grid>
+                            <Slider IsVisible="{Binding IsNumber}" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Number}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                            <TextBlock Text="{Binding Hint}" Classes="caption" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Token}" Classes="caption" FontSize="10"/>
+                            <TextBlock Text="Проверь значение" IsVisible="{Binding !IsValid}" Foreground="#F4A6A6" FontSize="11"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <WrapPanel>
+                <Button Content="Применить оформление" Classes="primary" Command="{Binding ApplyCommand}" Margin="0,0,8,8"/>
+                <Button Content="Сбросить оформление" Command="{Binding ResetCommand}" Margin="0,0,8,8"/>
+                <Button Content="Перечитать поля" Command="{Binding RevertCommand}" Margin="0,0,0,8"/>
+            </WrapPanel>
+            <TextBlock Text="Есть неприменённые изменения" IsVisible="{Binding HasPendingChanges}" Classes="caption"/>
+            <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="Цвет: #RRGGBB или rgb(...). Прозрачные цвета недоступны для общих параметров. Точные CSS-правила имеют приоритет над ними; сброс меняет только --nx-*, сохраняя остальные правила темы." Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel>
+    </Border>
+</UserControl>

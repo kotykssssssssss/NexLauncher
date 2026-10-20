@@ -27,6 +27,12 @@
 свой `GameDirectory`. Account metadata, DPAPI vault, launcher log и Quick CSS
 остаются в прежней папке данных NexLauncher.
 
+NexDoctor/NexStats хранят локальную историю в `%LOCALAPPDATA%\NexLauncher\insights`,
+отдельно от игровых папок. Форматы instances/accounts не меняются; новый флаг
+`MonitorPerformance` в settings по умолчанию выключен. История не входит в
+Export Instance или distribution artifacts. Подробности schema, retention,
+recovery и удаления — в [DOCTOR_STATS.md](DOCTOR_STATS.md).
+
 ## Совместимость со старыми настройками
 
 Настройки и instance имеют `FormatVersion = 2`. Старые записи без полей загрузчика

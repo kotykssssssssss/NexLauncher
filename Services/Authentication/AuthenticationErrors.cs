@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using CmlLib.Core.Auth.Microsoft;
+using Microsoft.Identity.Client;
 using XboxAuthNet.OAuth;
 using XboxAuthNet.OAuth.CodeFlow;
 using XboxAuthNet.XboxLive;
@@ -13,6 +14,13 @@ public static class AuthenticationErrors
 {
     public static Exception ForUser(Exception exception, CancellationToken cancellationToken)
     {
+        if (exception is AuthenticationConfigurationException) return new AuthenticationConfigurationException();
+        if (exception is MsalUiRequiredException)
+            return Error("Авторизация истекла. Открой «Аккаунты» → «Добавить Microsoft» и войди ещё раз.");
+        if (exception is MsalException msal)
+            return msal.ErrorCode == "authentication_canceled"
+                ? new OperationCanceledException("Вход Microsoft отменён.", cancellationToken)
+                : Error("Microsoft не завершил вход через браузер. Проверь сеть, разрешение приложения Minecraft Services и повтори попытку.");
         if (exception is OperationCanceledException)
             return cancellationToken.IsCancellationRequested
                 ? new OperationCanceledException("Вход отменён.", cancellationToken)
@@ -47,10 +55,10 @@ public static class AuthenticationErrors
         if (exception is HttpRequestException or TimeoutException)
             return Error("Не удалось связаться с серверами входа. Проверь интернет и повтори попытку.");
         if (exception is PlatformNotSupportedException)
-            return Error("Вход Microsoft пока поддерживается в Windows. Для Linux/macOS потребуется отдельный MSAL backend.");
+            return Error("Этот способ входа недоступен на данной платформе. Используй сборку NexLauncher для своей ОС.");
         if (exception is DllNotFoundException || exception.GetType().Name.Contains("WebView2", StringComparison.Ordinal))
             return Error("Для входа нужен Microsoft Edge WebView2 Runtime. Установи его с сайта Microsoft и повтори вход.");
-        return Error("Не удалось подтвердить аккаунт Microsoft/Xbox/Minecraft. Повтори вход; при необходимости проверь WebView2 Runtime и доступ к Java Edition.");
+        return Error("Не удалось подтвердить аккаунт Microsoft/Xbox/Minecraft. Повтори вход и проверь доступ к Java Edition.");
     }
 
     private static InvalidOperationException Error(string message) => new(message);

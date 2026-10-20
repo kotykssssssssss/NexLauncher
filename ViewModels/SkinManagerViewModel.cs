@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -22,7 +24,9 @@ public sealed partial class SkinManagerViewModel : ObservableObject, IDisposable
     private int _generation;
     private bool _disposed;
     public static SkinModelChoice[] Models { get; } = [new(SkinModel.Classic, "Classic / Steve · руки 4 px"), new(SkinModel.Slim, "Slim / Alex · руки 3 px")];
-    [ObservableProperty] private SkinModelChoice _selectedModel = Models[0];
+    private static readonly SkinModelChoice[] LegacyModels = [Models[0]];
+    public IReadOnlyList<SkinModelChoice> AvailableModels => PreviewImage?.Legacy == true ? LegacyModels : Models;
+    [ObservableProperty] private SkinModelChoice? _selectedModel = Models[0];
     [ObservableProperty] private SkinImage? _previewImage;
     [ObservableProperty] private string _status = "Открой скин выбранного аккаунта.";
     [ObservableProperty] private bool _isOpen;
@@ -33,9 +37,9 @@ public sealed partial class SkinManagerViewModel : ObservableObject, IDisposable
     public bool IsLocal => _account?.Type == NexLauncher.Models.AccountType.Local;
     public bool HasAccount => _account is not null;
     public bool IsEditable => !_disposed && !IsBusy && _canEdit();
-    public bool HasChanges => _draft is not null || _current is not null && SelectedModel.Model != _currentModel;
+    public bool HasChanges => _draft is not null || _current is not null && SelectedModel is { } choice && choice.Model != _currentModel;
     public bool IsMannequin => PreviewImage is null;
-    public SkinModel PreviewModel => SelectedModel.Model;
+    public SkinModel PreviewModel => SelectedModel?.Model ?? _currentModel;
     public string ApplyLabel => IsLocal ? "Сохранить Local Skin" : "Применить к Minecraft-аккаунту";
     public string ResetLabel => IsLocal ? "Удалить Local Skin" : "Вернуть стандартный скин";
     public string Scope => !HasAccount ? "Выбери аккаунт, чтобы управлять его скином." : IsLocal ? OfflineSkinService.Limitation : "Изменение применяется к Minecraft-аккаунту. Уже запущенная игра и другие клиенты могут обновить скин после переподключения.";
@@ -53,8 +57,9 @@ public sealed partial class SkinManagerViewModel : ObservableObject, IDisposable
         OpenCommand = new AsyncRelayCommand(async () => { IsOpen = true; await RefreshAsync(); }, () => IsEditable && HasAccount);
         CloseCommand = new RelayCommand(() => { IsOpen = false; _request?.Cancel(); });
         UploadCommand = new AsyncRelayCommand(UploadAsync, () => IsEditable && HasAccount && PickSkinAsync is not null);
-        ApplyCommand = new AsyncRelayCommand(() => RunAsync(async (account, token) => await _service.ApplyAsync(account, PreviewImage!, SelectedModel.Model, token),
-            "Скин применён.", "Local Skin сохранён только в NexLauncher."), () => IsEditable && HasAccount && PreviewImage is not null && HasChanges);
+        ApplyCommand = new AsyncRelayCommand(() => RunAsync(async (account, token) => await _service.ApplyAsync(account, PreviewImage!, PreviewModel, token),
+            "Скин применён.", "Local Skin сохранён только в NexLauncher."), () => IsEditable && HasAccount && PreviewImage is not null &&
+                SelectedModel is { } choice && AvailableModels.Contains(choice) && HasChanges);
         ResetCommand = new AsyncRelayCommand(() => RunAsync((account, token) => _service.ResetAsync(account, token),
             "Стандартный скин восстановлен. Minecraft выбирает его по UUID.", "Local Skin удалён. Скин в игре не изменялся."), () => IsEditable && HasAccount);
     }
@@ -129,17 +134,17 @@ public sealed partial class SkinManagerViewModel : ObservableObject, IDisposable
         catch (Exception ex) { var error = FriendlyError(ex); if (generation == _generation) Status = error.Message; throw error; }
         finally { if (ReferenceEquals(_request, source)) { _request = null; IsBusy = false; } RefreshCommands(); }
     });
-    partial void OnSelectedModelChanged(SkinModelChoice value) { OnPropertyChanged(nameof(PreviewModel)); RefreshCommands(); }
+    partial void OnSelectedModelChanged(SkinModelChoice? value) { OnPropertyChanged(nameof(PreviewModel)); RefreshCommands(); }
     private static Exception FriendlyError(Exception error) => error switch
     {
         SkinException => error,
         InvalidDataException => new SkinException("Сохранённые данные скина повреждены. Оригинальные файлы оставлены для восстановления."),
         FileNotFoundException or DirectoryNotFoundException => new SkinException("Файл скина не найден. Выбери PNG заново или проверь сохранённые данные."),
-        UnauthorizedAccessException => new SkinException("Нет доступа к файлу или папке скинов. Проверь разрешения Windows."),
+        UnauthorizedAccessException => new SkinException("Нет доступа к файлу или папке скинов. Проверь права доступа к файлам."),
         IOException => new SkinException("Не удалось прочитать или сохранить скин. Проверь доступ к диску и свободное место."),
         _ => error
     };
-    partial void OnPreviewImageChanged(SkinImage? value) { OnPropertyChanged(nameof(IsMannequin)); RefreshCommands(); }
+    partial void OnPreviewImageChanged(SkinImage? value) { OnPropertyChanged(nameof(IsMannequin)); OnPropertyChanged(nameof(AvailableModels)); RefreshCommands(); }
     partial void OnIsBusyChanged(bool value) => RefreshCommands();
     public void RefreshCommands()
     {

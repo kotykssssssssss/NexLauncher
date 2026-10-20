@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using NexLauncher.Services;
 using NexLauncher.Services.QuickCss;
@@ -21,14 +22,36 @@ public partial class MainWindow : Window
         viewModel.PickInstancesFolderAsync = PickInstancesFolderAsync;
         viewModel.QuickCss.OpenEditorAsync = async path =>
         {
-            if (_cssEditor is not null) { _cssEditor.Activate(); return; }
+            if (_cssEditor is { } current)
+            {
+                current.Activate();
+                if (current.DataContext is QuickCssEditorViewModel model &&
+                    string.Equals(model.FilePath, path, Services.Storage.SafePaths.PathComparison)) return;
+                if (current.HasPendingChanges)
+                    throw new InvalidOperationException("В редакторе открыт другой CSS-файл. Сохрани или закрой его черновик, затем открой выбранную тему.");
+                current.Close();
+            }
             var editorModel = new QuickCssEditorViewModel(path, new QuickCssEditorFiles(), viewModel.QuickCss.ApplyEditorFileAsync,
                 () => viewModel.IsEditable && !viewModel.QuickCss.IsBusy);
             var editor = _cssEditor = new Views.QuickCssEditorWindow(editorModel);
-            editor.Closed += (_, _) => _cssEditor = null;
+            editor.Closed += (_, _) => { if (ReferenceEquals(_cssEditor, editor)) _cssEditor = null; };
             editor.Show(this); await editor.LoadAsync();
         };
         viewModel.QuickCss.RefreshCommands();
+        viewModel.QuickCss.UpdateEditorHomeLayoutAsync = async (path, layout) =>
+        {
+            if (_cssEditor?.DataContext is not QuickCssEditorViewModel editor ||
+                !string.Equals(editor.FilePath, path, Services.Storage.SafePaths.PathComparison)) return false;
+            await editor.UpdateHomeLayoutAsync(layout);
+            return true;
+        };
+        viewModel.QuickCss.UpdateEditorTokensAsync = async (path, values) =>
+        {
+            if (_cssEditor?.DataContext is not QuickCssEditorViewModel editor ||
+                !string.Equals(editor.FilePath, path, Services.Storage.SafePaths.PathComparison)) return false;
+            await editor.UpdateTokensAsync(values);
+            return true;
+        };
         void PermissionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) => _cssEditor?.RefreshPermissions();
         viewModel.PropertyChanged += PermissionsChanged;
         viewModel.QuickCss.PropertyChanged += PermissionsChanged;
@@ -39,6 +62,8 @@ public partial class MainWindow : Window
         viewModel.Transfer.PickPackageAsync = PickInstancePackageAsync;
         viewModel.Transfer.SavePackageAsync = SaveInstancePackageAsync;
         viewModel.Transfer.RefreshCommands();
+        viewModel.Stats.SaveExportAsync = SaveStatsAsync;
+        viewModel.Doctor.CopyTextAsync = async text => { if (Clipboard is { } clipboard) await clipboard.SetTextAsync(text); };
         Opened += async (_, _) =>
         {
 
@@ -68,6 +93,16 @@ public partial class MainWindow : Window
         });
         try { return files.FirstOrDefault()?.TryGetLocalPath(); }
         finally { foreach (var file in files) file.Dispose(); }
+    }
+
+    private async Task<string?> SaveStatsAsync(string extension)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Экспорт статистики", SuggestedFileName = "NexStats." + extension, DefaultExtension = extension,
+            ShowOverwritePrompt = true, FileTypeChoices = [new FilePickerFileType(extension.ToUpperInvariant()) { Patterns = ["*." + extension] }]
+        });
+        try { return file?.TryGetLocalPath(); } finally { file?.Dispose(); }
     }
 
     private async Task<string?> PickSkinAsync()

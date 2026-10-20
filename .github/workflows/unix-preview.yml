@@ -1,0 +1,46 @@
+name: macOS and Linux preview checks
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            rid: linux-x64
+          - runner: macos-15-intel
+            rid: osx-x64
+          - runner: macos-15
+            rid: osx-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Linux rendering dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1 libx11-6 libice6 libsm6 libsecret-1-0
+      - name: Build, run fixture checks and package
+        shell: pwsh
+        run: ./scripts/Build-UnixRelease.ps1 -RuntimeIdentifier '${{ matrix.rid }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NexLauncher-preview-${{ matrix.rid }}
+          path: .artifacts/releases/cross-platform-preview/*
+          if-no-files-found: error
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-logs-${{ matrix.rid }}
+          path: |
+            .artifacts/platform-builds/*/*.log
+            .artifacts/checks/*/*.png
+          if-no-files-found: ignore

@@ -45,7 +45,13 @@ public sealed class InstancePackageReader
             foreach (var entry in archive.Entries)
             {
                 token.ThrowIfCancellationRequested();
-                InstanceManifestService.RelativePath(entry.FullName);
+                if (entry.FullName != InstanceManifestService.EntryName)
+                {
+                    if (!entry.FullName.StartsWith("files/", StringComparison.Ordinal))
+                        throw new InvalidDataException("Неизвестная запись в архиве.");
+                    // The storage prefix isn't part of the instance-relative path limit.
+                    InstanceManifestService.RelativePath(entry.FullName[6..]);
+                }
                 if (!names.Add(entry.FullName) || entry.FullName.EndsWith('/') || entry.Length < 0 || entry.Length > InstanceManifestService.MaxFileBytes ||
                     (entry.Length > 1024 * 1024 && entry.Length > Math.Max(1, entry.CompressedLength) * 200L) ||
                     ((entry.ExternalAttributes >> 16) & 0xF000) is not (0 or 0x8000) ||

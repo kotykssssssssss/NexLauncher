@@ -89,7 +89,27 @@ internal static class QuickCssEditorChecks
         check(editor.Text==Valid&&editor.ShowLineNumbers&&editor.SyntaxHighlighting.Name=="NexLauncher Quick CSS","settings command opens a separate owned CSS editor with line numbers and native highlighting");
         check(editor.SyntaxHighlighting.MainRuleSet.Rules.All(x=>!x.Regex.IsMatch("")),"syntax highlighting rules cannot produce an empty match/endless highlighting loop");
         check(!shell.QuickCss.Enabled&&!editor.Options.EnableHyperlinks&&!editor.Options.EnableEmailHyperlinks,"opening editor does not enable theme or activate links from untrusted CSS");
+        var otherPath = Path.Combine(folder, "other.css");
+        await File.WriteAllTextAsync(otherPath, "#app { background: #123456; }");
+        shell.QuickCss.FilePath = otherPath;
+        await shell.QuickCss.OpenCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
+        window = owner.OwnedWindows.OfType<QuickCssEditorWindow>().Single();
+        vm = (QuickCssEditorViewModel)window.DataContext!;
+        check(vm.FilePath == otherPath && vm.Text.Contains("#123456"),
+            "opening another CSS file switches a clean editor to the requested file");
+        shell.QuickCss.FilePath = path;
+        await shell.QuickCss.OpenCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
+        window = owner.OwnedWindows.OfType<QuickCssEditorWindow>().Single();
+        editor = window.FindControl<TextEditor>("Editor")!; vm = (QuickCssEditorViewModel)window.DataContext!;
         editor.Text=Invalid;await vm.ValidationTask;Dispatcher.UIThread.RunJobs();
+        shell.QuickCss.FilePath = otherPath;
+        await shell.QuickCss.OpenCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs();
+        check(ReferenceEquals(owner.OwnedWindows.OfType<QuickCssEditorWindow>().Single(), window) &&
+              vm.FilePath == path && editor.Text == Invalid && vm.IsDirty && shell.QuickCss.Status.Contains("другой CSS-файл"),
+            "switching CSS files preserves a dirty draft and explicitly explains which editor remains open");
+        check(await File.ReadAllTextAsync(otherPath) == "#app { background: #123456; }",
+            "a refused CSS editor switch never overwrites the newly selected theme");
+        shell.QuickCss.FilePath = path;
         check(vm.Text==Invalid&&window.Errors.LineCount==4,"actual editor typing updates shared diagnostics and error underline renderer");
         using(var frame=window.CaptureRenderedFrame())
         {

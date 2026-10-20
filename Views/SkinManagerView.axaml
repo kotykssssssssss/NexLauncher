@@ -18,7 +18,7 @@
                 </StackPanel>
                 <StackPanel x:Name="SkinActions" Grid.Column="1" Margin="20,0,0,0" Spacing="12">
                     <TextBlock Text="Модель игрока" FontWeight="SemiBold"/>
-                    <ComboBox ItemsSource="{x:Static vm:SkinManagerViewModel.Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding IsEditable}">
+                    <ComboBox ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding IsEditable}">
                         <ComboBox.ItemTemplate><DataTemplate x:DataType="models:SkinModelChoice"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                     <Button Content="Загрузить PNG…" Command="{Binding UploadCommand}" HorizontalAlignment="Stretch"/>

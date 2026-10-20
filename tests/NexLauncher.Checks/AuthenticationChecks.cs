@@ -12,18 +12,21 @@ internal static class AuthenticationChecks
         var directory = Path.Combine(root, "authentication");
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "accounts.dat");
-        var vault = new ProtectedAccountVault(path, new WindowsAccountDataProtector());
+        // Non-Windows CI uses a fixture key; it must not prompt/unlock a real user's Keychain.
+        IAccountDataProtector protector = OperatingSystem.IsWindows() ? new WindowsAccountDataProtector()
+            : new SystemAccountDataProtector(new FixtureKeyStore());
+        var vault = new ProtectedAccountVault(path, protector);
         var snapshot = new AccountVaultSnapshot(
             new JsonObject { ["alpha"] = new JsonObject { ["username"] = "Alice", ["token"] = "TEST-SECRET-NOT-A-REAL-TOKEN" } },
             "alpha");
         await vault.SaveAsync(snapshot, default);
         var encrypted = await File.ReadAllBytesAsync(path);
         check(!Encoding.UTF8.GetString(encrypted).Contains("TEST-SECRET") &&
-              !Encoding.UTF8.GetString(encrypted).Contains("Alice"), "DPAPI vault has no plaintext token or profile");
-        var restored = await new ProtectedAccountVault(path, new WindowsAccountDataProtector()).LoadAsync(default);
+              !Encoding.UTF8.GetString(encrypted).Contains("Alice"), "platform vault has no plaintext token or profile");
+        var restored = await new ProtectedAccountVault(path, protector).LoadAsync(default);
         check(restored.ActiveAccountId == "alpha" &&
               restored.Accounts["alpha"]!["token"]!.GetValue<string>() == "TEST-SECRET-NOT-A-REAL-TOKEN",
-            "DPAPI vault and selected account survive a new store instance");
+            "platform vault and selected account survive a new store instance");
 
         var inaccessible = new ProtectedAccountVault(path, new RejectingProtector());
         await Rejects<AccountStorageException>(() => inaccessible.LoadAsync(default), check, "foreign or inaccessible protection fails safely");
@@ -57,6 +60,14 @@ internal static class AuthenticationChecks
         check(skinSession.UUID == "beta" && backend.LastAccountId == "beta" && !backend.LastInteractive && reloaded.ActiveAccountId == "alpha",
             "skin session refresh targets a saved non-active Microsoft account without changing launch selection");
         check((await memory.LoadAsync(default)).ActiveAccountId == "alpha", "skin session refresh preserves active account in protected vault metadata");
+        backend.ReturnWrongIdentity = true;
+        await Rejects<InvalidOperationException>(() => reloaded.GetSessionForAccountAsync("beta", default), check,
+            "skin authentication cannot return a different Minecraft UUID");
+        await Rejects<InvalidOperationException>(() => reloaded.RestoreAsync(default), check,
+            "silent launch authentication cannot return a different Minecraft UUID");
+        check(reloaded.ActiveAccountId == "alpha" && (await memory.LoadAsync(default)).Accounts.Count == 2,
+            "identity mismatch preserves account selection and committed credentials");
+        backend.ReturnWrongIdentity = false;
         backend.NextId = "alpha";
         await reloaded.SignInAsync(default);
         check(reloaded.Accounts.Count == 2, "repeat sign-in replaces the same UUID without duplicate accounts");
@@ -93,6 +104,11 @@ internal static class AuthenticationChecks
         public byte[] Unprotect(byte[] ciphertext) => throw new System.Security.Cryptography.CryptographicException("PRIVATE");
     }
 
+    private sealed class FixtureKeyStore : ICredentialKeyStore
+    {
+        public byte[] GetKey(bool create) => Enumerable.Repeat((byte)42, 32).ToArray();
+    }
+
     private sealed class MemoryVault : IAccountVault
     {
         private AccountVaultSnapshot _state = AccountVaultSnapshot.Empty();
@@ -117,6 +133,7 @@ internal static class AuthenticationChecks
         public string? LastAccountId { get; private set; }
         public bool LastInteractive { get; private set; }
         public bool Cancel { get; set; }
+        public bool ReturnWrongIdentity { get; set; }
         public IReadOnlyList<LauncherAccount> GetAccounts(JsonObject storedAccounts) => storedAccounts
             .Select(item => new LauncherAccount(item.Key, item.Value!["username"]!.GetValue<string>(), item.Key)).ToArray();
         public Task<MinecraftAuthenticationResult> AuthenticateAsync(
@@ -130,7 +147,7 @@ internal static class AuthenticationChecks
             return Task.FromResult(new MinecraftAuthenticationResult(new MSession
             {
                 Username = "User-" + id,
-                UUID = id,
+                UUID = ReturnWrongIdentity ? "unexpected-identity" : id,
                 UserType = "msa",
                 AccessToken = "fake-session"
             }, storedAccounts));

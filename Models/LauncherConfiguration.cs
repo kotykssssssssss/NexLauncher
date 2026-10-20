@@ -11,4 +11,6 @@ public sealed class LauncherConfiguration
     public string MicrosoftClientId { get; set; } = "";
     public QuickCssSettings QuickCss { get; set; } = new();
     public bool ShowSnapshots { get; set; }
+    public bool MonitorPerformance { get; set; }
+    public HomeLayout HomeLayout { get; set; }
 }

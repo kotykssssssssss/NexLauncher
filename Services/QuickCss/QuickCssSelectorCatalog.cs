@@ -34,9 +34,17 @@ public static class QuickCssSelectorCatalog
         [".quiet"] = new(typeof(Button), "quiet"),
         ["#sidebar"] = new(typeof(Border), "qc-sidebar"),
         ["#content"] = new(typeof(Grid), "qc-content"),
+        ["#appearance-settings"] = new(typeof(Border), "qc-appearance"),
+        ["#application-info"] = new(typeof(Border), "qc-application-info"),
         ["#play-button"] = new(typeof(Button), "qc-play-button"),
         ["#instance-card"] = new(typeof(Border), "qc-instance-card"),
+        ["#home-instances"] = new(typeof(Grid), "qc-home-instances"),
+        [".home-tile"] = new(typeof(Border), "home-tile"),
         ["#instance-transfer"] = new(typeof(Border), "qc-instance-transfer"),
+        ["#nexdoctor"] = new(typeof(Grid), "qc-nexdoctor"),
+        ["#nexstats"] = new(typeof(Grid), "qc-nexstats"),
+        [".diagnostic-issue"] = new(typeof(Border), "qc-diagnostic-issue"),
+        [".stats-chart"] = new(typeof(Border), "qc-stats-chart"),
         ["#account-panel"] = new(typeof(Border), "qc-account-panel"),
         ["#skin-panel"] = new(typeof(Border), "qc-skin-panel"),
         ["#skin-catalog"] = new(typeof(Grid), "qc-skin-catalog"),
@@ -47,7 +55,9 @@ public static class QuickCssSelectorCatalog
         ["#modrinth-filters"] = new(typeof(Border), "qc-modrinth-filters"),
         [".project-card"] = new(typeof(Button), "qc-project-card"),
         ["#project-header"] = new(typeof(Border), "qc-project-header"),
-        ["#project-description"] = new(typeof(Border), "qc-project-description")
+        ["#project-description"] = new(typeof(Border), "qc-project-description"),
+        ["#project-compatibility"] = new(typeof(Border), "qc-project-compatibility"),
+        [".version-chip"] = new(typeof(Border), "version-chip")
     };
 
     public static IEnumerable<string> Selectors => Targets.Keys;

@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NexLauncher.ViewModels" xmlns:models="using:NexLauncher.Models" xmlns:views="using:NexLauncher.Views" xmlns:sessions="using:NexLauncher.Services.Sessions"
+             x:Class="NexLauncher.Views.NexStatsView" x:DataType="vm:NexStatsViewModel" x:CompileBindings="True">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid Classes="qc-nexstats" Margin="0,0,4,16">
+            <StackPanel Spacing="18">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Статистика" Classes="title"/>
+                    <Button Grid.Column="1" Content="Обновить" Command="{Binding RefreshCommand}" VerticalAlignment="Center"/>
+                </Grid>
+                <WrapPanel>
+                    <ComboBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" Width="210" Margin="0,0,8,8"/>
+                    <ComboBox ItemsSource="{Binding Periods}" SelectedItem="{Binding Period}" IsVisible="{Binding !IsRecap}" Width="155" Margin="0,0,8,8"/>
+                    <ComboBox ItemsSource="{Binding Buckets}" SelectedItem="{Binding Bucket}" Width="130" Margin="0,0,8,8"/>
+                    <CheckBox Content="Recap" IsChecked="{Binding IsRecap}" Margin="0,0,8,8"/>
+                    <ComboBox ItemsSource="{Binding RecapPeriods}" SelectedItem="{Binding RecapPeriod}" IsVisible="{Binding IsRecap}" Width="155" Margin="0,0,8,8"/>
+                </WrapPanel>
+                <WrapPanel IsVisible="{Binding IsCustom}">
+                    <TextBox Text="{Binding FromDate}" PlaceholderText="yyyy-MM-dd" Width="145" Margin="0,0,8,8"/>
+                    <TextBox Text="{Binding ToDate}" PlaceholderText="yyyy-MM-dd" Width="145" Margin="0,0,8,8"/>
+                    <Button Content="Применить даты" Command="{Binding RefreshCommand}"/>
+                </WrapPanel>
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"/>
+                <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap"/>
+                <Border Classes="card" IsVisible="{Binding IsEmpty}"><StackPanel Spacing="8"><TextBlock Text="Нет игровых сессий" FontSize="22" TextWrapping="Wrap"/><TextBlock Text="Статистика учитывает запуски Minecraft через NexLauncher." Classes="muted" TextWrapping="Wrap"/></StackPanel></Border>
+                <StackPanel IsVisible="{Binding HasData}" Spacing="18">
+                    <WrapPanel>
+                        <Border Classes="card" Width="175" Margin="0,0,10,10"><StackPanel Spacing="8"><TextBlock Text="Total Playtime" Classes="caption"/><TextBlock Text="{Binding Playtime}" FontSize="28"/></StackPanel></Border>
+                        <Border Classes="card" Width="175" Margin="0,0,10,10"><StackPanel Spacing="8"><TextBlock Text="Total Launches" Classes="caption"/><TextBlock Text="{Binding Summary.TotalLaunches}" FontSize="28"/></StackPanel></Border>
+                        <Border Classes="card" Width="175" Margin="0,0,10,10"><StackPanel Spacing="8"><TextBlock Text="Average Session" Classes="caption"/><TextBlock Text="{Binding Average}" FontSize="28"/></StackPanel></Border>
+                        <Border Classes="card" Width="175" Margin="0,0,10,10"><StackPanel Spacing="8"><TextBlock Text="Crash Rate" Classes="caption"/><TextBlock Text="{Binding CrashRate}" FontSize="28"/></StackPanel></Border>
+                    </WrapPanel>
+                    <Border Classes="card"><StackPanel Spacing="10"><TextBlock Text="Most Played Instance" Classes="caption"/><TextBlock Text="{Binding Summary.MostPlayedInstance}" FontSize="24" TextWrapping="Wrap"/>
+                        <WrapPanel><TextBlock Text="Started: " Classes="caption"/><TextBlock Text="{Binding Summary.SuccessfulLaunches}" Margin="0,0,18,0"/><TextBlock Text="Failed before start: " Classes="caption"/><TextBlock Text="{Binding Summary.FailedLaunches}" Margin="0,0,18,0"/><TextBlock Text="Crashes: " Classes="caption"/><TextBlock Text="{Binding Summary.Crashes}"/></WrapPanel>
+                        <TextBlock Text="Crash rate учитывает только завершения с известным результатом; interrupted не считается crash." Classes="caption" TextWrapping="Wrap"/>
+                        <TextBlock Text="Last Played" Classes="caption"/><TextBlock Text="{Binding LastPlayed}"/>
+                    </StackPanel></Border>
+                    <Border Classes="card" IsVisible="{Binding IsRecap}"><StackPanel Spacing="10"><TextBlock Text="Your Minecraft Recap" FontSize="26"/>
+                        <TextBlock Text="Любимая версия" Classes="caption"/><TextBlock Text="{Binding Summary.FavoriteVersion}" FontSize="22"/>
+                        <TextBlock Text="Самая длинная сессия" Classes="caption"/><TextBlock Text="{Binding Longest}" FontSize="22"/>
+                        <TextBlock Text="Самый активный день" Classes="caption"/><TextBlock Text="{Binding Summary.BusiestDay}" FontSize="22"/>
+                        <TextBlock Text="Самая длинная серия завершённых сессий без crash" Classes="caption" TextWrapping="Wrap"/><TextBlock Text="{Binding Summary.CrashFreeStreak}" FontSize="22"/>
+                    </StackPanel></Border>
+                    <Border Classes="card qc-stats-chart"><StackPanel Spacing="8"><TextBlock Text="Playtime Over Time" FontSize="18"/><views:StatsChart Data="{Binding Summary.Playtime}" Unit="ч" Height="180" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/></StackPanel></Border>
+                    <Border Classes="card qc-stats-chart"><StackPanel Spacing="8"><TextBlock Text="Instance Distribution" FontSize="18"/><views:StatsChart Data="{Binding Summary.Instances}" Unit="ч" Height="180" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/>
+                        <ItemsControl ItemsSource="{Binding Summary.Instances}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="sessions:ChartPoint"><Grid ColumnDefinitions="*,Auto" Margin="0,4"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="{Binding Value, StringFormat={}{0:0.0} ч}"/></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel></Border>
+                    <Grid ColumnDefinitions="*,*">
+                        <Border Classes="card qc-stats-chart" Margin="0,0,8,0"><StackPanel Spacing="8"><TextBlock Text="Minecraft Versions" FontSize="18"/><views:StatsChart Data="{Binding Summary.Versions}" Unit="ч" Height="160" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/></StackPanel></Border>
+                        <Border Classes="card qc-stats-chart" Grid.Column="1"><StackPanel Spacing="8"><TextBlock Text="Loaders" FontSize="18"/><views:StatsChart Data="{Binding Summary.Loaders}" Unit="ч" Height="160" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/></StackPanel></Border>
+                    </Grid>
+                    <Border Classes="card qc-stats-chart"><StackPanel Spacing="8"><TextBlock Text="Session Duration" FontSize="18"/><views:StatsChart Data="{Binding Summary.Durations}" Unit="мин" Height="160" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/></StackPanel></Border>
+                    <Border Classes="card qc-stats-chart"><StackPanel Spacing="8"><TextBlock Text="Crash History" FontSize="18"/><views:StatsChart Data="{Binding Summary.CrashHistory}" Unit="crashes" Height="160" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/></StackPanel></Border>
+                    <Border Classes="card"><StackPanel Spacing="12"><TextBlock Text="Sessions / Memory Usage" FontSize="18"/>
+                        <ComboBox ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" MaxDropDownHeight="340"><ComboBox.ItemTemplate><DataTemplate x:DataType="models:GameSession"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                        <TextBlock Text="{Binding SessionDetails}" TextWrapping="Wrap" Classes="caption"/>
+                        <views:StatsChart Data="{Binding Memory}" Unit="MiB" IsLine="True" Height="180" Accent="{DynamicResource NxAccentBrush}" TextBrush="{ReflectionBinding $parent[Window].Foreground}"/>
+                        <TextBlock Text="FPS tracking unavailable without client integration. RAM: process working set, включая shared pages; CPU: доля всех логических процессоров." Classes="caption" TextWrapping="Wrap"/>
+                        <Button Content="Открыть диагностику" Command="{Binding OpenDiagnosisCommand}" IsVisible="{Binding HasDiagnosis}" HorizontalAlignment="Left"/>
+                    </StackPanel></Border>
+                </StackPanel>
+                <WrapPanel><Button Content="Export JSON" Command="{Binding ExportCommand}" CommandParameter="json" Margin="0,0,8,8"/><Button Content="Export CSV" Command="{Binding ExportCommand}" CommandParameter="csv" Margin="0,0,8,8"/><Button Content="Export Recap PNG" Command="{Binding ExportCommand}" CommandParameter="png" IsVisible="{Binding HasData}" Margin="0,0,8,8"/></WrapPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

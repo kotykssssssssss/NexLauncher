@@ -7,7 +7,8 @@ using NexLauncher.Models;
 namespace NexLauncher.Services.QuickCss;
 
 public sealed record QuickCssResult(bool IsApplied, int RuleCount,
-    IReadOnlyList<QuickCssDiagnostic> Diagnostics, string Message);
+    IReadOnlyList<QuickCssDiagnostic> Diagnostics, string Message, NexLauncher.Models.HomeLayout? HomeLayout = null,
+    IReadOnlyDictionary<string, string>? Appearance = null);
 
 public interface IQuickCssService : IDisposable
 {

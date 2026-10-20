@@ -19,6 +19,8 @@ using NexLauncher.Services.Network;
 using NexLauncher.Services.Storage;
 using NexLauncher.Services.Modrinth;
 using NexLauncher.Services.Instances;
+using NexLauncher.Services.Sessions;
+using NexLauncher.Services.Diagnostics;
 
 namespace NexLauncher.ViewModels;
 
@@ -60,6 +62,16 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isProgressIndeterminate;
     [ObservableProperty] private double _progressValue;
     [ObservableProperty] private bool _showLog;
+    [ObservableProperty] private bool _monitorPerformance;
+    [ObservableProperty] private DoctorReport? _crashNotification;
+    private readonly SessionStore _sessionStore;
+    private readonly ModManager _doctorMods;
+    public GameSessionTracker Sessions { get; }
+    public NexDoctorViewModel Doctor { get; }
+    public NexStatsViewModel Stats { get; }
+    public IAsyncRelayCommand ViewCrashCommand { get; }
+    public IRelayCommand DismissCrashCommand { get; }
+    public bool HasCrashNotification => CrashNotification is not null;
     [ObservableProperty] private string _logText = "";
 
     public bool IsPlayPage => CurrentPage == "play";
@@ -69,7 +81,9 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsModrinthPage => CurrentPage is "modrinth" or "mods";
     public bool IsSkinsPage => CurrentPage == "skins";
     public bool IsTransferPage => CurrentPage == "transfer";
-    public bool IsStandardPage => !IsModrinthPage && !IsSkinsPage && !IsTransferPage;
+    public bool IsDoctorPage => CurrentPage == "doctor";
+    public bool IsStatsPage => CurrentPage == "stats";
+    public bool IsStandardPage => !IsModrinthPage && !IsSkinsPage && !IsTransferPage && !IsDoctorPage && !IsStatsPage;
     public InstanceTransferViewModel Transfer { get; }
     public IRelayCommand ExportInstanceCommand { get; }
     public IRelayCommand ImportInstanceCommand { get; }
@@ -88,7 +102,7 @@ public partial class MainWindowViewModel : ObservableObject
     public bool ShowProgress => IsWorking && !IsGameRunning && _operation is not null;
     public bool IsInstalled => SelectedInstance is not null && _minecraft.IsInstalled(SelectedInstance);
     public string AccountName => Accounts.Username;
-    public string InstanceTitle => SelectedInstance?.Name ?? "Твоя первая сборка";
+    public string InstanceTitle => SelectedInstance?.Name ?? "Сборка не выбрана";
     public string InstanceDetails => SelectedInstance?.Details ?? "Minecraft: Java Edition";
     public string InstallState => IsGameRunning ? "Игра запущена" : IsInstalled ? "Установлено" : "Нужна установка";
     public string MemoryLabel => $"{MemoryGb} ГБ";
@@ -97,8 +111,7 @@ public partial class MainWindowViewModel : ObservableObject
     public string VersionCount => IsLoadingVersions ? "Обновляем список…" : $"{Versions.Count} версий";
     public string PrimaryButtonText => IsWorking ? (IsGameRunning ? "Игра запущена" : "Подготовка…") :
         !HasInstance ? "Создать сборку" : !IsInstalled ? "Установить" : !HasAccount ? "Выбрать аккаунт" : Accounts.IsLocalAccount ? "Играть локально" : "Играть";
-    public string HeroTitle => IsGameRunning ? "Хорошей игры" : !HasInstance ? "Начни свой новый мир" :
-        IsInstalled ? "Всё готово к игре" : "Подготовим игру";
+    public string HeroTitle => "Играть";
 
     public IRelayCommand<string> NavigateCommand { get; }
     public IRelayCommand CancelCommand { get; }
@@ -106,6 +119,7 @@ public partial class MainWindowViewModel : ObservableObject
     public IRelayCommand ToggleLogCommand { get; }
     public IRelayCommand OpenFolderCommand { get; }
     public IRelayCommand OpenLogCommand { get; }
+    public IRelayCommand<string> OpenInformationLinkCommand { get; }
     public AccountsViewModel Accounts { get; }
     public QuickCssViewModel QuickCss { get; }
     public IAsyncRelayCommand RefreshVersionsCommand { get; }
@@ -129,12 +143,26 @@ public partial class MainWindowViewModel : ObservableObject
         QuickCss.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(QuickCssViewModel.IsBusy)) RefreshState();
+            if (args.PropertyName == nameof(QuickCssViewModel.ThemeHomeLayout)) RefreshHomeLayoutChoice();
         };
         _log = new LauncherLog(store.DataDirectory);
         var skinLibrary = new SkinLibrary(store.DataDirectory, skinValidator);
         SkinCatalog = new SkinCatalogViewModel(skinLibrary, skinLibrary, new SkinCatalogPreviewCache(),
             new SkinPngExport(skinValidator), () => IsEditable, PrepareLibrarySkinAsync, AppendLog);
         var modrinthApi = modrinth ?? new ModrinthService(LauncherHttp.Shared);
+        _sessionStore = new SessionStore(store.DataDirectory);
+        _doctorMods = new ModManager(modrinthApi, LauncherHttp.Shared);
+        var doctorService = new NexDoctorService(new InstanceHealthService(_doctorMods, minecraft), _sessionStore);
+        Sessions = new GameSessionTracker(_sessionStore, doctorService, _log);
+        Sessions.CrashDetected += OnCrashDetected;
+        Sessions.ActiveProcessesChanged += OnTrackedProcessesChanged;
+        if (minecraft is MinecraftService native) native.SessionTracker = Sessions;
+        Stats = new NexStatsViewModel(_sessionStore, () => IsEditable && !Sessions.HasActiveSession, id => _ = ShowDiagnosisAsync(id));
+        Doctor = new NexDoctorViewModel(store.DataDirectory, doctorService, _sessionStore, RunOperationAsync, () => IsEditable,
+            FixDoctorIssueAsync, instance => { SelectedInstance = instance; CurrentPage = "mods"; },
+            path => OpenPath(path, Directory.Exists(path)), id => _ = ShowSessionAsync(id));
+        ViewCrashCommand = new AsyncRelayCommand(async () => { if (CrashNotification is { } report) await ShowDiagnosisAsync(report.Id); });
+        DismissCrashCommand = new RelayCommand(() => CrashNotification = null);
         Transfer = new InstanceTransferViewModel(new InstanceExportService(new ModManager(modrinthApi, LauncherHttp.Shared)),
             new InstanceImportService(modrinthApi, LauncherHttp.Shared, minecraft), RunOperationAsync, CreateProgress,
             () => IsEditable, () => InstancesDirectory, () => Instances.Select(x => x.Name).ToArray(), PublishImportedAsync);
@@ -148,13 +176,20 @@ public partial class MainWindowViewModel : ObservableObject
         };
         NavigateCommand = new RelayCommand<string>(page =>
         {
-            if (page is "play" or "instances" or "settings" or "modrinth" or "mods" or "skins") CurrentPage = page;
+            if (page is "play" or "instances" or "settings" or "modrinth" or "mods" or "skins" or "doctor" or "stats") CurrentPage = page;
         });
         CancelCommand = new RelayCommand(() => _operation?.Cancel(), () => CanCancel);
         DismissErrorCommand = new RelayCommand(() => ErrorMessage = "");
         ToggleLogCommand = new RelayCommand(() => ShowLog = !ShowLog);
         OpenFolderCommand = new RelayCommand(() => OpenPath(GameDirectory, true), () => HasInstance);
         OpenLogCommand = new RelayCommand(() => { _log.Write("Открытие журнала."); OpenPath(_log.FilePath, false); });
+        OpenInformationLinkCommand = new RelayCommand<string>(key =>
+        {
+            var url = ApplicationInformation.Link(key);
+            if (url is null) return;
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+            catch (Exception ex) { ShowError(ex, "Не удалось открыть страницу проекта."); }
+        });
         RefreshVersionsCommand = new AsyncRelayCommand(RefreshVersionsAsync, () => IsEditable);
         CreateInstanceCommand = new AsyncRelayCommand(CreateInstanceAsync, () => IsEditable && LoaderOptions.CanCreate && SelectedVersion is not null && !string.IsNullOrWhiteSpace(NewInstanceName));
         ChooseInstancesFolderCommand = new AsyncRelayCommand(ChooseInstancesFolderAsync, () => IsEditable);
@@ -171,9 +206,11 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _loadingConfiguration = true;
             _configuration = await _store.LoadAsync();
+            RefreshHomeLayoutChoice();
             InstancesDirectory = string.IsNullOrEmpty(_configuration.InstancesDirectory) ? Path.Combine(_store.DataDirectory, "instances") : _configuration.InstancesDirectory;
             await QuickCss.InitializeAsync(_configuration.QuickCss);
             IncludeSnapshots = _configuration.ShowSnapshots;
+            MonitorPerformance = _configuration.MonitorPerformance;
             foreach (var instance in _configuration.Instances) Instances.Add(instance);
             SelectedInstance = Instances.FirstOrDefault(x => x.Id == _configuration.SelectedInstanceId) ?? Instances.FirstOrDefault();
         }
@@ -184,6 +221,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         RefreshState();
         _loadingConfiguration = false;
+        await Sessions.RecoverAsync();
         try { await Accounts.InitializeAsync(); }
         catch (Exception ex)
         {
@@ -196,6 +234,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
+        if (Doctor is not null && value == "doctor") { Doctor.Configure(Instances, SelectedInstance); _ = Doctor.OpenAsync(); }
+        if (Stats is not null) { if (value == "stats") { Stats.Configure(Instances); Stats.Open(); } else Stats.Deactivate(); }
         if (SkinCatalog is not null)
         {
             if (value == "skins") SkinCatalog.Open(Accounts.Items, Accounts.SelectedAccount);
@@ -241,11 +281,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshState()
     {
-        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsInstancesSection), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(IsSkinsPage), nameof(IsTransferPage), nameof(IsStandardPage), nameof(CanOpenMods),
+        foreach (var name in new[] { nameof(IsPlayPage), nameof(IsInstancesPage), nameof(IsInstancesSection), nameof(IsSettingsPage), nameof(IsModrinthPage), nameof(IsPacksPage), nameof(IsSkinsPage), nameof(IsTransferPage), nameof(IsStandardPage), nameof(IsDoctorPage), nameof(IsStatsPage), nameof(CanOpenMods),
             nameof(HasInstance), nameof(HasNoInstances), nameof(HasAccount), nameof(HasNoAccount), nameof(IsEditable),
             nameof(CanCancel), nameof(ShowProgress), nameof(IsInstalled), nameof(AccountName), nameof(InstanceTitle),
             nameof(InstanceDetails), nameof(InstallState), nameof(GameDirectory), nameof(PrimaryButtonText),
-            nameof(HeroTitle), nameof(VersionCount) })
+            nameof(HeroTitle), nameof(VersionCount), nameof(ShowDefaultHomeSelector) })
             OnPropertyChanged(name);
         // Property setters also run during initialization, before every command has been assigned.
         CancelCommand?.NotifyCanExecuteChanged();
@@ -261,6 +301,7 @@ public partial class MainWindowViewModel : ObservableObject
         Catalog?.RefreshCommands();
         SkinCatalog?.RefreshCommands();
         ExportInstanceCommand?.NotifyCanExecuteChanged(); ImportInstanceCommand?.NotifyCanExecuteChanged(); Transfer?.RefreshCommands();
+        Doctor?.RefreshPermissions(); Stats?.RefreshPermissions();
     }
 
     private void FilterVersions()
@@ -418,7 +459,6 @@ public partial class MainWindowViewModel : ObservableObject
         {
             StatusText = "Операция отменена.";
             Notice = "Можно повторить действие.";
-            Accounts.SetError("Операция отменена.");
         }
         catch (Exception ex) { ShowError(ex, "Не удалось завершить действие."); StatusText = "Нужна помощь — смотри сообщение ниже."; }
         finally { _operation = null; IsGameRunning = false; IsWorking = false; RefreshState(); }
@@ -477,6 +517,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void Dispose()
     {
+        Sessions.CrashDetected -= OnCrashDetected; Sessions.ActiveProcessesChanged -= OnTrackedProcessesChanged; Sessions.Dispose(); Stats.Dispose();
         SkinCatalog.Dispose();
         Catalog.Dispose();
         LoaderOptions.Dispose();
@@ -491,6 +532,7 @@ public partial class MainWindowViewModel : ObservableObject
         _configuration.SelectedInstanceId = SelectedInstance?.Id;
 
         _configuration.ShowSnapshots = IncludeSnapshots;
+        _configuration.MonitorPerformance = MonitorPerformance;
         _configuration.InstancesDirectory = InstancesDirectory;
         return _store.SaveAsync(_configuration, cancellationToken);
     }
@@ -570,6 +612,35 @@ public partial class MainWindowViewModel : ObservableObject
         SkinCatalog.Deactivate();
         Catalog.Deactivate();
         if (!IsGameRunning) _operation?.Cancel();
+    }
+
+    partial void OnMonitorPerformanceChanged(bool value) { if (Sessions is not null) Sessions.MonitorPerformance = value; }
+    partial void OnCrashNotificationChanged(DoctorReport? value) => OnPropertyChanged(nameof(HasCrashNotification));
+    private void OnCrashDetected(DoctorReport report) => Dispatcher.UIThread.Post(() => CrashNotification = report);
+    private void OnTrackedProcessesChanged() => Dispatcher.UIThread.Post(() => IsGameRunning = Sessions.HasRunningProcess);
+    private async Task ShowDiagnosisAsync(string id)
+    {
+        CurrentPage = "doctor"; Doctor.Configure(Instances, SelectedInstance); await Doctor.OpenAsync(id);
+    }
+    private async Task ShowSessionAsync(string id)
+    {
+        CurrentPage = "stats"; Stats.Configure(Instances); await Stats.ShowSessionAsync(id);
+    }
+    private async Task FixDoctorIssueAsync(GameInstance instance, DiagnosticIssue issue, CancellationToken token)
+    {
+        var game = SafePaths.GamePath(DataDirectory, instance);
+        switch (issue.Fix)
+        {
+            case DiagnosticFix.RepairGame: await _minecraft.InstallAsync(instance, CreateProgress(), token); break;
+            case DiagnosticFix.RestoreMissingManagedFile when issue.ProjectId is not null:
+                await _doctorMods.RestoreMissingAsync(game, issue.ProjectId, CreateProgress(), token); break;
+            case DiagnosticFix.AutomaticJava:
+                var previous = instance.JavaPath; instance.JavaPath = "";
+                try { await PersistAsync(token); if (SelectedInstance?.Id == instance.Id) JavaPath = ""; }
+                catch { instance.JavaPath = previous; throw; }
+                break;
+            default: throw new InvalidOperationException("Для этой проблемы нет безопасного автоматического исправления.");
+        }
     }
 
     private async Task PrepareLibrarySkinAsync(LauncherAccount account, SkinCatalogTexture texture)

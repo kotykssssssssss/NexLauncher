@@ -20,8 +20,8 @@ public sealed class MicrosoftAccountService : IMicrosoftAccountService
     private bool _initialized;
 
     public MicrosoftAccountService(string dataDirectory) : this(
-        new WindowsMinecraftAuthenticationBackend(),
-        new ProtectedAccountVault(Path.Combine(dataDirectory, "auth", "accounts.dat"), new WindowsAccountDataProtector()))
+        PlatformAuthentication.Backend(dataDirectory),
+        new ProtectedAccountVault(Path.Combine(dataDirectory, "auth", "accounts.dat"), PlatformAuthentication.Protector(dataDirectory)))
     {
     }
 
@@ -64,6 +64,7 @@ public sealed class MicrosoftAccountService : IMicrosoftAccountService
             await EnsureInitializedAsync(cancellationToken);
             if (ActiveAccountId is null) return null;
             var result = await _backend.AuthenticateAsync(_snapshot.Copy().Accounts, ActiveAccountId, false, cancellationToken);
+            RequireMatchingIdentity(ActiveAccountId, result.Session);
             cancellationToken.ThrowIfCancellationRequested();
             await CommitAsync(new AccountVaultSnapshot(result.Accounts, result.Session.UUID), cancellationToken);
             return result.Session;
@@ -78,6 +79,7 @@ public sealed class MicrosoftAccountService : IMicrosoftAccountService
         {
             await EnsureInitializedAsync(cancellationToken); RequireAccount(id);
             var result = await _backend.AuthenticateAsync(_snapshot.Copy().Accounts, id, false, cancellationToken);
+            RequireMatchingIdentity(id, result.Session);
             cancellationToken.ThrowIfCancellationRequested();
             await CommitAsync(new AccountVaultSnapshot(result.Accounts, _snapshot.ActiveAccountId), cancellationToken);
             return result.Session;
@@ -158,5 +160,11 @@ public sealed class MicrosoftAccountService : IMicrosoftAccountService
     {
         if (!Accounts.Any(account => account.Id == id))
             throw new InvalidOperationException("Выбранный аккаунт больше не сохранён. Обнови список аккаунтов.");
+    }
+
+    private static void RequireMatchingIdentity(string id, MSession session)
+    {
+        if (!string.Equals(id, session.UUID, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Microsoft вернул другой игровой профиль. Выбранный аккаунт не изменён; войди в него повторно.");
     }
 }

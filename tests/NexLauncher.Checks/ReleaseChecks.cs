@@ -15,6 +15,8 @@ internal static class ReleaseChecks
         check(LauncherHttp.UserAgent.StartsWith("NexLauncher/" + BuildInfo.Version + " "), "HTTP identification follows the release version");
         using var resource = assembly.GetManifestResourceStream("NexLauncher.QuickCssExample");
         check(resource is { Length: > 100 }, "Quick CSS example is embedded, independent of publish directory");
+        using var privacy = assembly.GetManifestResourceStream("NexLauncher.Privacy");
+        check(privacy is { Length: > 100 }, "privacy notice is embedded in the published application independently of source checkout");
         var data = Path.Combine(root, "first run Релиз", "user data");
         var store = new ConfigurationStore(data);
         check(!Directory.Exists(data) && (await store.LoadAsync()).Instances.Count == 0,

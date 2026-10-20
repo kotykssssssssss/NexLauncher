@@ -183,6 +183,9 @@ internal static class SkinChecks
         model.PickSkinAsync=()=>Task.FromResult<string?>(pngPath); await model.OpenCommand.ExecuteAsync(null); await model.UploadCommand.ExecuteAsync(null);
         check(model.IsOpen && model.PreviewImage is not null && model.HasChanges && model.Scope.Contains("только в NexLauncher"),"Local Skin UI presents a real draft preview with explicit in-game limitation");
         check((await local.GetAsync(Local,default)).Image is null,"imported draft is not stored or applied before confirmation");
+        model.SelectedModel = null!;
+        check(!model.ApplyCommand.CanExecute(null) && model.HasChanges && model.PreviewModel == SkinModel.Classic,
+            "cleared model selection keeps skin draft and preview safe, with Apply disabled");
         model.SelectedModel=SkinManagerViewModel.Models[1]; await model.ApplyCommand.ExecuteAsync(null);
         await File.WriteAllTextAsync(pngPath,"source can disappear");
         check(!model.HasChanges && (await local.GetAsync(Local,default)).Model==SkinModel.Slim,"apply persists explicit Slim model independent of original imported source file");
@@ -190,6 +193,16 @@ internal static class SkinChecks
         check(errors.Last() is SkinException && model.PreviewImage is not null,"invalid import shows a nonfatal error and preserves saved preview");
         await model.ResetCommand.ExecuteAsync(null);
         check(model.IsMannequin && (await local.GetAsync(Local,default)).Image is null,"Reset clears local skin and returns explicit neutral/default placeholder");
+        await File.WriteAllBytesAsync(pngPath, Png(64, 32));
+        await model.UploadCommand.ExecuteAsync(null);
+        check(model.AvailableModels.Count == 1 && model.AvailableModels[0].Model == SkinModel.Classic,
+            "legacy skin offers only the supported Classic model");
+        model.SelectedModel = SkinManagerViewModel.Models[1];
+        check(!model.ApplyCommand.CanExecute(null), "unsupported Slim selection cannot apply a legacy skin");
+        model.SelectedModel = SkinManagerViewModel.Models[0];
+        await model.ApplyCommand.ExecuteAsync(null);
+        check((await local.GetAsync(Local, default)).Model == SkinModel.Classic && !model.HasChanges,
+            "legacy Classic skin still applies through the existing storage pipeline");
         model.SetAccount(Local with { Username="Renamed_Player" });
         check(model.Username=="Renamed_Player" && !model.ApplyCommand.CanExecute(null),"account change/rename clears stale draft and refreshes labels without fabricating a skin");
         model.SetAccount(null); check(!model.OpenCommand.CanExecute(null) && !model.UploadCommand.CanExecute(null),"skin commands disable when selected account is absent");

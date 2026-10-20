@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +34,8 @@ public sealed class QuickCssService : IQuickCssService
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _settings = new QuickCssSettings { Enabled = settings.Enabled, FilePath = settings.FilePath?.Trim() ?? "", AutoReload = settings.AutoReload };
+            _settings = new QuickCssSettings { Enabled = settings.Enabled, FilePath = settings.FilePath?.Trim() ?? "", AutoReload = settings.AutoReload,
+                Appearance = QuickCssAppearance.ValidateAndCopy(settings.Appearance) };
             ReplaceWatcher();
             return StartReloadLocked(cancellationToken, debounce: false);
         }
@@ -57,7 +60,8 @@ public sealed class QuickCssService : IQuickCssService
         _reloadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _reloadCancellation.Token;
         var generation = ++_generation;
-        var settings = new QuickCssSettings { Enabled = _settings.Enabled, FilePath = _settings.FilePath, AutoReload = _settings.AutoReload };
+        var settings = new QuickCssSettings { Enabled = _settings.Enabled, FilePath = _settings.FilePath, AutoReload = _settings.AutoReload,
+            Appearance = new(_settings.Appearance) };
         return RunReloadAsync(settings, generation, token, debounce);
     }
 
@@ -70,7 +74,13 @@ public sealed class QuickCssService : IQuickCssService
                 return await PublishAsync(generation, token, () =>
                 {
                     _applier.Clear();
-                    return new(false, 0, Array.Empty<QuickCssDiagnostic>(), "Quick CSS выключен.");
+                    var rules = QuickCssAppearance.Rules(settings.Appearance);
+                    if (rules.Count > 0)
+                    {
+                        using var baseline = new PreparedQuickCss(new(rules, []), new Dictionary<string, Avalonia.Media.Imaging.Bitmap>(), []);
+                        _applier.Apply(baseline);
+                    }
+                    return new(false, 0, Array.Empty<QuickCssDiagnostic>(), "Quick CSS выключен. Оформление из настроек активно.");
                 }).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(settings.FilePath)) throw new InvalidDataException("Выбери файл .css с темой.");
             var path = Path.GetFullPath(settings.FilePath);
@@ -80,6 +90,7 @@ public sealed class QuickCssService : IQuickCssService
                 token.ThrowIfCancellationRequested();
                 var source = new UTF8Encoding(false, true).GetString(bytes).TrimStart('\ufeff');
                 var document = QuickCssParser.Parse(source);
+                document = document with { Rules = QuickCssAppearance.Rules(settings.Appearance).Concat(document.Rules).ToArray() };
                 token.ThrowIfCancellationRequested();
                 return await QuickCssImageLoader.PrepareAsync(document, path, token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
@@ -96,7 +107,7 @@ public sealed class QuickCssService : IQuickCssService
         {
             return await PublishAsync(generation, token, () => new(_applier.IsApplied, _lastResult.RuleCount,
                 new[] { new QuickCssDiagnostic(0, ex.Message) },
-                _applier.IsApplied ? "Не удалось прочитать тему. Последний применённый стиль сохранён." : "Не удалось применить Quick CSS.")).ConfigureAwait(false);
+                _applier.IsApplied ? "Не удалось прочитать тему. Последний применённый стиль сохранён." : "Не удалось применить Quick CSS.", _lastResult.HomeLayout, _lastResult.Appearance)).ConfigureAwait(false);
         }
     }
 

@@ -18,5 +18,6 @@ obj/
 /skin-library/
 /instances/
 /logs/
+/insights/
 # User instance exports/imports are not application source.
 *.nexpack

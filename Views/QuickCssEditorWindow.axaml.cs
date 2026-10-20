@@ -74,7 +74,8 @@ public partial class QuickCssEditorWindow : Window
     }
     private async void OnEditorKey(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.S || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+        var saveModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (e.Key != Key.S || !e.KeyModifiers.HasFlag(saveModifier)) return;
         e.Handled = true;
         await _model.SaveAsync(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
     }

@@ -15,6 +15,7 @@ using NexLauncher.Models;
 using NexLauncher.Services.Loaders;
 using NexLauncher.Services.Network;
 using NexLauncher.Services.Storage;
+using NexLauncher.Services.Sessions;
 
 namespace NexLauncher.Services;
 
@@ -25,6 +26,7 @@ public sealed class MinecraftService : IMinecraftService
     private readonly string dataDirectory;
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private readonly ILoaderInstaller loaderInstaller;
+    public GameSessionTracker? SessionTracker { get; set; }
 
     public MinecraftService(string dataDirectory, ILoaderInstaller? loaderInstaller = null)
     {
@@ -100,10 +102,17 @@ public sealed class MinecraftService : IMinecraftService
         cancellationToken.ThrowIfCancellationRequested();
         var settings = SnapshotAndValidate(instance);
         var launchSession = LaunchSessionPolicy.CopyForLaunch(session);
-        NexLauncher.Services.Modrinth.ModManager.EnsureReady(GetGamePath(settings));
         await operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        TrackedGameSession? tracking = null;
+        int? observedExit = null;
         try
         {
+            if (SessionTracker is { } tracker)
+            {
+                try { tracking = await tracker.BeginAsync(settings, GetGamePath(settings)).ConfigureAwait(false); }
+                catch (Exception) { /* Statistics must never prevent launch. */ }
+            }
+            NexLauncher.Services.Modrinth.ModManager.EnsureReady(GetGamePath(settings));
             var launcher = CreateLauncher(GetGamePath(settings), settings.JavaPath);
             // Verify hashes and recover missing files on every launch, even when a marker exists.
             var profile = await InstallCoreAsync(launcher, settings, progress, cancellationToken).ConfigureAwait(false);
@@ -117,8 +126,7 @@ public sealed class MinecraftService : IMinecraftService
                 GameLauncherVersion = BuildInfo.Version
             }, cancellationToken).ConfigureAwait(false);
 
-            if (!File.Exists(process.StartInfo.FileName))
-                throw new InvalidOperationException("Подходящая Java не найдена. Укажите путь к Java в настройках сборки.");
+            MinecraftRuntimePolicy.RequireExecutableJava(process.StartInfo.FileName);
 
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
@@ -128,6 +136,12 @@ public sealed class MinecraftService : IMinecraftService
             if (!process.Start())
                 throw new InvalidOperationException("Не удалось запустить Minecraft.");
 
+            if (tracking is not null)
+            {
+                try { await tracking.StartedAsync(process).ConfigureAwait(false); }
+                catch (Exception) { /* Process already owns its lifetime. */ }
+            }
+
             progress.Report(new LaunchProgress("Игра запущена", null, true));
             // Once started the game owns its lifetime. Cancellation/closing the launcher must not kill it.
             // Drain both pipes concurrently so a full stderr buffer cannot block the Java process.
@@ -135,11 +149,28 @@ public sealed class MinecraftService : IMinecraftService
             var stdout = ReadLogAsync(process.StandardOutput, log, logGate, launchSession);
             var stderr = ReadLogAsync(process.StandardError, log, logGate, launchSession);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            observedExit = process.ExitCode;
+            // Stop duration/sampling at process exit, before draining any remaining output.
+            if (tracking is not null)
+            {
+                try { await tracking.FinishAsync(observedExit, false).ConfigureAwait(false); }
+                catch (Exception) { /* Optional diagnostics must not affect the launcher result. */ }
+            }
             await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
             return process.ExitCode;
         }
+        catch (Exception exception)
+        {
+            if (tracking is not null) tracking.Session.FailureCategory = exception.GetType().Name;
+            throw;
+        }
         finally
         {
+            if (tracking is not null)
+            {
+                try { await tracking.FinishAsync(observedExit, cancellationToken.IsCancellationRequested).ConfigureAwait(false); }
+                catch (Exception) { /* Optional diagnostics cannot turn a completed game into a launcher error. */ }
+            }
             operationGate.Release();
         }
     }
@@ -196,6 +227,8 @@ public sealed class MinecraftService : IMinecraftService
         }
         cancellationToken.ThrowIfCancellationRequested();
 
+        // A missing platform runtime must not leave an "installed" success marker behind.
+        MinecraftRuntimePolicy.RequireExecutableJava(java);
         Directory.CreateDirectory(launcher.MinecraftPath.BasePath);
         var temporaryMarker = marker + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try

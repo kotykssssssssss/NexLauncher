@@ -28,8 +28,44 @@ internal static class InstanceTransferChecks
     {
         root = Path.Combine(root, "instance transfer Мир"); Directory.CreateDirectory(root);
         await RoundTrip(root, check);
+        await ExportBoundaries(root, check);
         await UnsafeArchives(root, check);
         await Ui(root, check);
+    }
+    private static async Task ExportBoundaries(string root, Action<bool, string> check)
+    {
+        var api = new FixtureApi(); var http = new LauncherHttp(new HttpClient(new FixtureHttp()));
+        var exporter = new InstanceExportService(new ModManager(api, http));
+        var instance = new GameInstance { Name = "Export boundaries", VersionId = "1.21.1" };
+        var game = Path.Combine(root, "export boundaries");
+        var data = new byte[2 * 1024 * 1024];
+        var source = SafePaths.Resolve(game, "config/repeated.dat");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        await File.WriteAllBytesAsync(source, data);
+        var plan = await exporter.PlanAsync(instance, game, new(Configs: true), Progress, default);
+        var path = Path.Combine(root, "high compression export.nexpack");
+        await exporter.ExportAsync(plan, path, Progress, default);
+        var preview = await new InstancePackageReader().PreviewAsync(path, default);
+        check(preview.Manifest.Files.Single().Size == data.Length,
+            "export of highly compressible legitimate content passes its own bomb protection");
+        using (var zip = ZipFile.OpenRead(path))
+            check(zip.GetEntry("files/config/repeated.dat")!.CompressedLength >= data.Length / 200,
+                "large export entries respect the reader's compression ratio limit");
+        var relative = "config/" + new string('a', 110) + "/" + new string('b', 110) + "/" + new string('c', 11);
+        check(relative.Length == 240, "export path fixture reaches the supported relative path limit");
+        var longFile = SafePaths.Resolve(game, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(longFile)!);
+        await File.WriteAllTextAsync(longFile, "long path fixture");
+        plan = await exporter.PlanAsync(instance, game, new(Configs: true), Progress, default);
+        await exporter.ExportAsync(plan, path, Progress, default);
+        preview = await new InstancePackageReader().PreviewAsync(path, default);
+        check(preview.Manifest.Files.Any(x => x.Path == relative),
+            "archive files/ prefix does not reduce the documented 240 character content path limit");
+        var imported = await new InstanceImportService(api, http, new FixtureMinecraft()).ImportAsync(path, preview,
+            "Boundary import", Path.Combine(root, "boundary import"), [], PublishNothing, Progress, default);
+        check(File.ReadAllBytes(SafePaths.Resolve(imported.GameDirectory, "config/repeated.dat")).SequenceEqual(data) &&
+              File.ReadAllText(SafePaths.Resolve(imported.GameDirectory, relative)) == "long path fixture",
+            "compressible content and boundary paths survive transactional import without changing bytes");
     }
     private static async Task RoundTrip(string root, Action<bool, string> check)
     {
@@ -52,6 +88,16 @@ internal static class InstanceTransferChecks
             ("screenshots/private.png", Jar), ("servers.dat", Jar), ("usercache.json", Jar), (".nexlauncher/accounts.json", Jar) })
         { var target = SafePaths.Resolve(source.GameDirectory, relativePath); Directory.CreateDirectory(Path.GetDirectoryName(target)!); await File.WriteAllBytesAsync(target, contents); }
         var exporter = new InstanceExportService(manager);
+        if (!OperatingSystem.IsWindows() && !File.Exists(SafePaths.Resolve(source.GameDirectory, "mods/" + main.Files[0].Filename.ToUpperInvariant())))
+        {
+            var cased = SafePaths.Resolve(source.GameDirectory, "mods/" + main.Files[0].Filename.ToUpperInvariant());
+            await File.WriteAllBytesAsync(cased, Jar);
+            await Reject<InvalidDataException>(() => exporter.PlanAsync(source, source.GameDirectory, new(true, true, true, true), Progress, default), check,
+                "Unix export rejects cross-platform case collisions instead of silently omitting an unknown JAR");
+            var retained = await File.ReadAllBytesAsync(cased);
+            check(retained.SequenceEqual(Jar), "case-collision export preserves the manual JAR");
+            File.Delete(cased);
+        }
         var lean = await exporter.PlanAsync(source, source.GameDirectory, new(), Progress, default);
         check(lean.Manifest.Mods.Count == 2 && lean.Manifest.Files.Count == 0 && lean.Manifest.OmittedFiles.Contains("mods/local.jar") && lean.Notices.Any(x => x.Contains("неполной")), "export defaults to exact Modrinth references and warns about omitted local files");
         var plan = await exporter.PlanAsync(source, source.GameDirectory, new(true, true, true, true), Progress, default);
@@ -75,6 +121,14 @@ internal static class InstanceTransferChecks
         check(!Directory.Exists(SafePaths.Resolve(imported.GameDirectory, "saves")) && File.Exists(SafePaths.Resolve(source.GameDirectory, "saves/world/level.dat")) && source.GameDirectory.StartsWith(Path.Combine(root, "old root")), "import into a new custom root preserves all old instance paths and private worlds");
         check(network.Agents.All(x => x == LauncherHttp.UserAgent) && importedMods.Projects.Count == 2, "import reuses identifying HTTP layer and does not install optional/embedded dependencies");
         check(!Directory.EnumerateDirectories(importedRoot, ".nex-stage-*").Any() && File.Exists(SafePaths.Resolve(imported.GameDirectory, ".nexlauncher/import.json")), "successful import removes staging and records credential-free provenance");
+        if (OperatingSystem.IsWindows())
+        {
+            var lockedMinecraft = new FixtureMinecraft { LockRename = true };
+            GameInstance? unlocked = null;
+            try { unlocked = await new InstanceImportService(api, http, lockedMinecraft).ImportAsync(path, preview, "Windows rename", Path.Combine(root, "rename lock"), [], PublishNothing, Progress, default); }
+            finally { await lockedMinecraft.ReleaseRename; }
+            check(unlocked is not null && File.Exists(SafePaths.Resolve(unlocked.GameDirectory, ".nexlauncher/import.json")), "import tolerates a real temporary Windows directory rename lock without partial publication");
+        }
         await Reject<InvalidOperationException>(() => importer.ImportAsync(path, preview, imported.Name.ToUpperInvariant(), importedRoot, [imported.Name], PublishNothing, Progress, default), check, "duplicate instance name is rejected without silently overwriting an instance");
         foreach (var mode in new[] { "installer", "network", "hash", "publish", "cancel" })
         {
@@ -191,6 +245,13 @@ internal static class InstanceTransferChecks
         model.SavePackageAsync = () => Task.FromResult<string?>(path); model.PickPackageAsync = () => Task.FromResult<string?>(path);
         shell.ExportInstanceCommand.Execute(null); model.Configs = true; await model.PreviewExportCommand.ExecuteAsync(null);
         check(shell.IsTransferPage && !shell.IsStandardPage && model.HasPreview && model.Summary.Contains("Vanilla") && model.FileList.Any(x => x.Contains("config/test.json")), "instance Export command opens native preview with visible file inventory");
+        check(model.RequiresDistributionConfirmation && !model.ExportCommand.CanExecute(null), "bundled export requires an explicit rights review before enabling export");
+        await model.ExportCommand.ExecuteAsync(null);
+        check(!File.Exists(path), "direct command execution cannot bypass missing bundled-file rights confirmation");
+        model.ConfirmDistributionRights = true;
+        check(model.ExportCommand.CanExecute(null), "rights confirmation enables the reviewed bundled export");
+        await model.PreviewExportCommand.ExecuteAsync(null);
+        check(!model.ConfirmDistributionRights && !model.ExportCommand.CanExecute(null), "refreshing preview invalidates the previous rights acknowledgement");
         check(shell.IsInstancesSection && window.GetVisualDescendants().OfType<Button>().Any(x => x.Content as string == "← Сборки" && x.Command == shell.NavigateCommand),
             "transfer keeps Instances navigation active and provides an explicit return action");
         var view = window.GetVisualDescendants().OfType<InstanceTransferView>().Single();
@@ -206,8 +267,10 @@ internal static class InstanceTransferChecks
         using var theme = new QuickCssService(window); await theme.ConfigureAsync(new() { Enabled = true, FilePath = themePath, AutoReload = false }); Dispatcher.UIThread.RunJobs();
         check(view.GetVisualDescendants().OfType<Border>().Any(x => x.Classes.Contains("qc-instance-transfer") && x.Background?.ToString() == "#ff102030"), "transfer public Quick CSS selector overrides the existing dark card theme");
         await theme.ConfigureAsync(new() { Enabled = false, FilePath = themePath, AutoReload = false });
-        model.Configs = false; check(!model.HasPreview && !model.ExportCommand.CanExecute(null), "changing export options invalidates stale preview and export action");
-        model.Configs = true; await model.PreviewExportCommand.ExecuteAsync(null); await model.ExportCommand.ExecuteAsync(null);
+        model.Configs = false; check(!model.HasPreview && !model.ConfirmDistributionRights && !model.ExportCommand.CanExecute(null), "changing export options invalidates stale preview and export action");
+        await model.PreviewExportCommand.ExecuteAsync(null);
+        check(!model.RequiresDistributionConfirmation && model.ExportCommand.CanExecute(null), "reference-only export does not ask for permission to redistribute files it does not bundle");
+        model.Configs = true; await model.PreviewExportCommand.ExecuteAsync(null); model.ConfirmDistributionRights = true; await model.ExportCommand.ExecuteAsync(null);
         check(File.Exists(path) && !shell.HasError, "UI export creates a real validated package using the provided Save dialog result");
         shell.ImportInstanceCommand.Execute(null); await model.ChoosePackageCommand.ExecuteAsync(null);
         check(model.IsImport && model.HasPreview && !model.ImportCommand.CanExecute(null), "UI import preview blocks duplicate instance name until explicitly renamed");
@@ -268,9 +331,23 @@ internal static class InstanceTransferChecks
     private sealed class FixtureMinecraft : IMinecraftService
     {
         public bool Fail; public int Installs; public TaskCompletionSource? Hold;
+        public bool LockRename; public Task ReleaseRename = Task.CompletedTask;
         public Task<IReadOnlyList<MinecraftRelease>> GetVersionsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<MinecraftRelease>>([new("1.21.1", "release", DateTimeOffset.UtcNow)]);
         public bool IsInstalled(GameInstance instance) => File.Exists(SafePaths.Resolve(instance.GameDirectory, ".fixture-installed"));
-        public async Task InstallAsync(GameInstance instance, IProgress<LaunchProgress> progress, CancellationToken token) { Installs++; token.ThrowIfCancellationRequested(); if (Hold is not null) await Hold.Task.WaitAsync(token); await File.WriteAllTextAsync(SafePaths.Resolve(instance.GameDirectory, ".fixture-installed"), "verified", token); if (Fail) throw new IOException("Fixture installation failure"); }
+        public async Task InstallAsync(GameInstance instance, IProgress<LaunchProgress> progress, CancellationToken token)
+        {
+            Installs++; token.ThrowIfCancellationRequested(); if (Hold is not null) await Hold.Task.WaitAsync(token);
+            await File.WriteAllTextAsync(SafePaths.Resolve(instance.GameDirectory, ".fixture-installed"), "verified", token);
+            if (Fail) throw new IOException("Fixture installation failure");
+            if (LockRename)
+            {
+                var handle = OpenDirectory(Path.GetDirectoryName(instance.GameDirectory)!, 0, 3, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
+                if (handle.IsInvalid) { handle.Dispose(); throw new System.ComponentModel.Win32Exception(System.Runtime.InteropServices.Marshal.GetLastWin32Error()); }
+                ReleaseRename = Task.Run(async () => { using (handle) await Task.Delay(250); });
+            }
+        }
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+        private static extern Microsoft.Win32.SafeHandles.SafeFileHandle OpenDirectory(string path, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
         public Task<int> LaunchAsync(GameInstance instance, MSession session, IProgress<LaunchProgress> progress, Action<string> log, CancellationToken token) => throw new NotSupportedException();
     }
 }

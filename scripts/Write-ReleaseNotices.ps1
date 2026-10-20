@@ -31,6 +31,7 @@ foreach ($entry in $deps.libraries.PSObject.Properties | Sort-Object Name) {
     $sourceName = switch -Regex ($identity) {
         '^Avalonia(?:\.[^/]+)?/12\.1\.0$' { 'Avalonia-12.1.0-*'; break }
         '^XboxAuthNet.Game/1\.4\.1$' { 'CmlLib.Core.Auth.Microsoft-3.3.1-*'; break }
+        '^XboxAuthNet.Game.Msal/0\.1\.3$' { 'CmlLib.Core.Auth.Microsoft-3.3.1-*'; break }
         default { ($identity -replace '/', '-') + '-*' }
     }
     $upstream = @(Get-ChildItem -LiteralPath (Join-Path $repo 'packaging/licenses') -Filter $sourceName -File)

@@ -31,6 +31,7 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
     [ObservableProperty] private bool _configs;
     [ObservableProperty] private bool _resourcePacks;
     [ObservableProperty] private bool _shaderPacks;
+    [ObservableProperty] private bool _confirmDistributionRights;
     [ObservableProperty] private string _newName = "";
     [ObservableProperty] private string _summary = "Выбери package .nexpack для проверки.";
     [ObservableProperty] private string _warnings = "";
@@ -43,6 +44,7 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
     public bool HasPreview => _exportPlan is not null || _importPreview is not null;
     public bool HasWarnings => Warnings.Length > 0;
     public bool HasStatus => Status.Length > 0;
+    public bool RequiresDistributionConfirmation => IsExport && _exportPlan is { Manifest.Files.Count: > 0 };
     public string Title => IsExport ? "Export / Share Instance" : "Import Instance";
     public string TargetDirectory => _root();
     public IAsyncRelayCommand PreviewExportCommand { get; }
@@ -57,7 +59,8 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
         _exporter = exporter; _importer = importer; _run = run; _progress = progress; _canEdit = canEdit;
         _root = root; _names = names; _publish = publish;
         PreviewExportCommand = new AsyncRelayCommand(PreviewExportAsync, () => IsEditable && IsExport && _instance is not null);
-        ExportCommand = new AsyncRelayCommand(ExportAsync, () => IsEditable && IsExport && _exportPlan is not null && SavePackageAsync is not null);
+        ExportCommand = new AsyncRelayCommand(ExportAsync, () => IsEditable && IsExport && _exportPlan is not null &&
+            (!RequiresDistributionConfirmation || ConfirmDistributionRights) && SavePackageAsync is not null);
         ChoosePackageCommand = new AsyncRelayCommand(ChoosePackageAsync, () => IsEditable && IsImport && PickPackageAsync is not null);
         ImportCommand = new AsyncRelayCommand(ImportAsync, () => IsEditable && IsImport && _importPreview is not null &&
             !string.IsNullOrWhiteSpace(NewName) && NewName.Trim().Length <= 60 && !_names().Any(x => x.Equals(NewName.Trim(), StringComparison.OrdinalIgnoreCase)));
@@ -79,6 +82,7 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
     });
     private async Task ExportAsync()
     {
+        if (RequiresDistributionConfirmation && !ConfirmDistributionRights) return;
         await _run(async token =>
         {
             var target = await SavePackageAsync!(); if (target is null) return;
@@ -123,6 +127,7 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
     }
     private void Invalidate()
     {
+        ConfirmDistributionRights = false;
         _exportPlan = null; _importPreview = null; _package = ""; FileList.Clear(); Warnings = ""; Status = "";
         Summary = IsExport ? "Подготовь новый preview для выбранных параметров." : "Выбери package .nexpack для проверки.";
         OnPropertyChanged(nameof(HasPreview)); RefreshCommands();
@@ -133,11 +138,13 @@ public sealed partial class InstanceTransferViewModel : ObservableObject
     partial void OnResourcePacksChanged(bool value) => Invalidate();
     partial void OnShaderPacksChanged(bool value) => Invalidate();
     partial void OnNewNameChanged(string value) => RefreshCommands();
+    partial void OnConfirmDistributionRightsChanged(bool value) => RefreshCommands();
     partial void OnWarningsChanged(string value) => OnPropertyChanged(nameof(HasWarnings));
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasStatus));
     public void RefreshCommands()
     {
         PreviewExportCommand?.NotifyCanExecuteChanged(); ExportCommand?.NotifyCanExecuteChanged();
         ChoosePackageCommand?.NotifyCanExecuteChanged(); ImportCommand?.NotifyCanExecuteChanged(); OnPropertyChanged(nameof(IsEditable));
+        OnPropertyChanged(nameof(RequiresDistributionConfirmation));
     }
 }

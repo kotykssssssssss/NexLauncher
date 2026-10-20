@@ -94,6 +94,7 @@ public sealed class ConfigurationStore
         if (source.FormatVersion is < 1 or > 2) throw new InvalidDataException("Неизвестная версия настроек.");
         if (source.Instances is null)
             throw new InvalidDataException("Список сборок не может быть null.");
+        if (!Enum.IsDefined(source.HomeLayout)) throw new InvalidDataException("Неизвестный вид главного экрана.");
 
         var clientId = source.MicrosoftClientId?.Trim() ?? "";
         if (clientId.Length > 0)
@@ -108,6 +109,8 @@ public sealed class ConfigurationStore
             InstancesDirectory = string.IsNullOrWhiteSpace(source.InstancesDirectory) ? Path.Combine(DataDirectory, "instances") : SafePaths.LocalRoot(source.InstancesDirectory),
             MicrosoftClientId = clientId,
             ShowSnapshots = source.ShowSnapshots,
+            MonitorPerformance = source.MonitorPerformance,
+            HomeLayout = source.HomeLayout,
             QuickCss = CopyQuickCss(source.QuickCss)
         };
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -162,7 +165,8 @@ public sealed class ConfigurationStore
         if (path.Length > 2048 || (path.Length > 0 &&
             (!Path.IsPathFullyQualified(path) || path.IndexOfAny(Path.GetInvalidPathChars()) >= 0)))
             throw new InvalidDataException("Quick CSS: укажи полный путь к файлу.");
-        return new QuickCssSettings { Enabled = source.Enabled, FilePath = path, AutoReload = source.AutoReload };
+        return new QuickCssSettings { Enabled = source.Enabled, FilePath = path, AutoReload = source.AutoReload,
+            Appearance = QuickCss.QuickCssAppearance.ValidateAndCopy(source.Appearance) };
     }
 
     private static bool IsValidVersionId(string value)

@@ -22,6 +22,7 @@
             <Setter Property="Margin" Value="32,24,32,20"/>
         </Style>
         <Style Selector="Window">
+            <Setter Property="Icon" Value="avares://NexLauncher/Assets/branding/NexLauncher.ico"/>
             <Setter Property="Background" Value="#181A1D"/>
             <Setter Property="Foreground" Value="#EDF0F3"/>
             <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter"/>
@@ -105,6 +106,35 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="24"/>
+        </Style>
+        <Style Selector="Border.version-chip">
+            <Setter Property="Background" Value="#202327"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="MaxWidth" Value="230"/>
+        </Style>
+        <Style Selector="ListBox.home-tiles ListBoxItem">
+            <Setter Property="Width" Value="184"/><Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,12,12"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ListBox.home-list ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+        <Style Selector="Border.home-tile"><Setter Property="Background" Value="#26292D"/><Setter Property="CornerRadius" Value="8"/><Setter Property="BorderThickness" Value="2"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+        <Style Selector="ListBox.home-tiles ListBoxItem:selected Border.home-tile"><Setter Property="BorderBrush" Value="{DynamicResource NxAccentBrush}"/></Style>
+        <Style Selector="Border.description-code">
+            <Setter Property="Background" Value="#1C1F22"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style Selector="Border.description-quote">
+            <Setter Property="BorderBrush" Value="{DynamicResource NxAccentBrush}"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="Padding" Value="14,4"/>
+        </Style>
+        <Style Selector="Border.description-divider">
+            <Setter Property="Background" Value="#3B4148"/>
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Margin" Value="0,8"/>
         </Style>
         <Style Selector="ProgressBar">
             <Setter Property="Foreground" Value="{DynamicResource NxAccentBrush}"/>

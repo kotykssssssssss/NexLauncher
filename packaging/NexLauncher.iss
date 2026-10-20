@@ -34,6 +34,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir={#OutputDir}
 OutputBaseFilename=NexLauncher-Setup-v{#AppVersion}
+SetupIconFile=..\Assets\branding\NexLauncher.ico
 UninstallDisplayIcon={app}\NexLauncher.exe
 UninstallDisplayName=NexLauncher
 Compression=lzma2

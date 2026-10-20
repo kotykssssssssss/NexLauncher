@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -21,12 +22,18 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
     private Func<Task<string?>>? _pick;
     private readonly CancellationTokenSource _lifetime = new();
     private bool _disposed;
+    private Dictionary<string, string> _appearance = new();
+    private IReadOnlyDictionary<string, string>? _themeAppearance;
+    public AppearanceViewModel Appearance { get; }
+    public Func<string, IReadOnlyDictionary<string, string>, Task<bool>>? UpdateEditorTokensAsync { get; set; }
     [ObservableProperty] private bool _enabled;
     [ObservableProperty] private bool _autoReload = true;
     [ObservableProperty] private string _filePath = "";
     [ObservableProperty] private string _status = "Quick CSS выключен.";
     [ObservableProperty] private string _diagnostics = "";
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private HomeLayout? _themeHomeLayout;
+    public Func<string, HomeLayout, Task<bool>>? UpdateEditorHomeLayoutAsync { get; set; }
     public bool HasDiagnostics => Diagnostics.Length > 0;
     public IAsyncRelayCommand ApplyCommand { get; }
     public IAsyncRelayCommand ReloadCommand { get; }
@@ -39,6 +46,7 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
     public QuickCssViewModel(string dataDirectory, Func<QuickCssSettings, Task> save, Func<bool> canEdit)
     {
         _dataDirectory = dataDirectory; _save = save; _canEdit = canEdit;
+        Appearance = new AppearanceViewModel(SetAppearanceAsync, CanEdit);
         ApplyCommand = new AsyncRelayCommand(() => GuardAsync(ApplyAsync), CanEdit);
         // Both actions persist pending path/toggle edits and reload from disk.
         ReloadCommand = new AsyncRelayCommand(() => GuardAsync(ApplyAsync), CanEdit);
@@ -68,11 +76,11 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
                     throw new InvalidOperationException("Выбери существующий .css файл.");
                 Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             }
-            catch { Status = "Не удалось открыть CSS. Выбери файл или назначь редактор для .css в Windows."; }
+            catch { Status = "Не удалось открыть CSS. Выбери файл или назначь редактор для .css в системе."; }
         }, () => CanEdit() && !string.IsNullOrWhiteSpace(FilePath));
     }
 
-    private async Task<string> CreateFileAsync(bool reuseExisting)
+    private async Task<string> CreateFileAsync(bool reuseExisting, bool minimal = false)
     {
         var folder = Path.Combine(_dataDirectory, "themes"); Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, "quickcss.css");
@@ -80,6 +88,12 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
         {
             if (reuseExisting) return path;
             path = Path.Combine(folder, $"quickcss-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.css");
+        }
+        if (minimal)
+        {
+            await using var minimalFile = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true);
+            await minimalFile.WriteAsync(System.Text.Encoding.UTF8.GetBytes("/* NexLauncher · общие параметры оформления из настроек. */\n"), _lifetime.Token);
+            return path;
         }
         await using var source = typeof(QuickCssViewModel).Assembly.GetManifestResourceStream("NexLauncher.QuickCssExample")
             ?? throw new InvalidOperationException("Встроенный пример Quick CSS недоступен.");
@@ -107,11 +121,59 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
 
     public async Task InitializeAsync(QuickCssSettings settings)
     {
+        _appearance = QuickCssAppearance.ValidateAndCopy(settings.Appearance);
+        Appearance.Refresh(_appearance, null);
         Enabled = settings.Enabled; FilePath = settings.FilePath; AutoReload = settings.AutoReload;
         if (_service is not null) Show(await _service.ConfigureAsync(Settings(), _lifetime.Token));
     }
 
-    private QuickCssSettings Settings() => new() { Enabled = Enabled, FilePath = FilePath.Trim(), AutoReload = AutoReload };
+    private QuickCssSettings Settings() => new() { Enabled = Enabled, FilePath = FilePath.Trim(), AutoReload = AutoReload, Appearance = new(_appearance) };
+    private async Task SetAppearanceAsync(IReadOnlyDictionary<string, string> values)
+    {
+        if (!CanEdit()) throw new InvalidOperationException("Дождись завершения другой операции Quick CSS.");
+        var normalized = QuickCssAppearance.ValidateAndCopy(values);
+        IsBusy = true;
+        var previous = _appearance;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(FilePath)) FilePath = await CreateFileAsync(reuseExisting: true, minimal: true);
+            if (!Path.IsPathFullyQualified(FilePath.Trim()) || !FilePath.Trim().EndsWith(".css", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Выбери полный путь к .css файлу. Оформление не записано.");
+            var path = Path.GetFullPath(FilePath.Trim());
+            if (UpdateEditorTokensAsync is null || !await UpdateEditorTokensAsync(path, normalized))
+            {
+                var files = new QuickCssEditorFiles();
+                var file = await files.LoadAsync(path, _lifetime.Token);
+                var rewritten = await Task.Run(() => QuickCssRootTokens.Rewrite(file.Text, normalized), _lifetime.Token);
+                await files.SaveAsync(path, rewritten, file.Revision, _lifetime.Token);
+            }
+            _appearance = normalized;
+            await ApplyAsync();
+            Appearance.Refresh(_appearance, _themeAppearance);
+        }
+        catch { _appearance = previous; throw; }
+        finally { IsBusy = false; }
+    }
+    public async Task SetHomeLayoutAsync(HomeLayout layout)
+    {
+        if (!CanEdit()) throw new InvalidOperationException("Дождись завершения другой операции Quick CSS.");
+        IsBusy = true;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(FilePath)) FilePath = await CreateFileAsync(reuseExisting: true);
+            var path = Path.GetFullPath(FilePath.Trim());
+            if (UpdateEditorHomeLayoutAsync is null || !await UpdateEditorHomeLayoutAsync(path, layout))
+            {
+                var files = new QuickCssEditorFiles();
+                var file = await files.LoadAsync(path, _lifetime.Token);
+                var rewritten = await Task.Run(() => QuickCssHomeLayout.Rewrite(file.Text, layout), _lifetime.Token);
+                await files.SaveAsync(path, rewritten, file.Revision, _lifetime.Token);
+            }
+            // Preserve the enabled/disabled switch; choosing a layout never enables a theme.
+            await ApplyAsync();
+        }
+        finally { IsBusy = false; }
+    }
     private async Task ApplyAsync()
     {
         var settings = Settings();
@@ -139,6 +201,9 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
     private void Show(QuickCssResult result)
     {
         if (_disposed) return;
+        ThemeHomeLayout = result.HomeLayout;
+        _themeAppearance = result.Appearance;
+        Appearance.Refresh(_appearance, _themeAppearance);
         Status = result.Message;
         Diagnostics = string.Join(Environment.NewLine, result.Diagnostics.Take(12).Select(x => $"Строка {x.Line}: {x.Message}"));
         if (result.Diagnostics.Count > 12) Diagnostics += $"\nЕщё ошибок: {result.Diagnostics.Count - 12}.";
@@ -152,6 +217,7 @@ public partial class QuickCssViewModel : ObservableObject, IDisposable
         ApplyCommand?.NotifyCanExecuteChanged(); ReloadCommand?.NotifyCanExecuteChanged();
         BrowseCommand?.NotifyCanExecuteChanged(); OpenCommand?.NotifyCanExecuteChanged(); OpenExternalCommand?.NotifyCanExecuteChanged();
         CreateExampleCommand?.NotifyCanExecuteChanged();
+        Appearance?.RefreshCommands();
     }
     public void Dispose()
     {

@@ -47,11 +47,12 @@ internal static class ProjectDetailsChecks
         check(ProjectDescriptionParser.Parse(longBody).Blocks.Single().Spans.Single().Text == longBody, "complete description beyond old 10000-character truncation is preserved");
         const string hostile = "<script>alert('x')</script><iframe src='file:///x'></iframe>\n\n[bad](javascript:alert) [data](data:text/html,bad) [file](file:///C:/x) [shell](shell:AppsFolder)";
         var blocked = ProjectDescriptionParser.Parse(hostile);
-        check(blocked.Blocks.SelectMany(x => x.Spans).All(x => x.Link is null) && blocked.Blocks[0].Spans[0].Text.Contains("<script>"), "HTML and script remain text; active link protocols never reach render model");
+        check(blocked.Blocks.SelectMany(x => x.Spans).All(x => x.Link is null) && !string.Concat(blocked.Blocks.SelectMany(x => x.Spans).Select(x => x.Text)).Contains("alert"), "scripts and embeds are removed; active link protocols never reach render model");
         foreach (var url in new[] { "javascript:alert(1)", "file:///C:/x", "data:text/html,x", "ms-settings:privacy", "https://user:password@example.org", "//example.org", "https://localhost/x", "https://example.org/\nfoo", "https:\\example.org" })
             check(!SafeProjectLink.TryCreate(url, out _), "unsafe external link rejected: " + url.Replace('\n', ' '));
         check(SafeProjectLink.TryCreate("https://example.org/wiki?q=test#section", out _), "explicit HTTPS project link is allowed");
-        check(ProjectDescriptionParser.Parse(new string('[', 100000)).Blocks.Count == 1, "malformed bracket content is handled within bounded scans");
+        try { ProjectDescriptionParser.Parse(new string('[', 100000)); throw new Exception("Expected nesting guard"); }
+        catch (InvalidDataException) { check(true, "pathological malformed bracket nesting produces a nonfatal complexity notice"); }
         try { ProjectDescriptionParser.Parse(new string('x', ProjectDescriptionParser.MaxCharacters + 1)); throw new Exception("Expected description size limit"); }
         catch (InvalidDataException) { check(true, "oversized description reports explicit limit instead of silent truncation"); }
         try { ProjectDescriptionParser.Parse(Body, new CancellationToken(true)); throw new Exception("Expected cancellation"); }
@@ -140,8 +141,8 @@ internal static class ProjectDetailsChecks
         check(ReferenceEquals(catalog.SelectedVersion, main) && catalog.VersionSummary.Contains("Minecraft 1.21.1") && catalog.VersionSummary.Contains("Fabric"), "Mods selector preserves selected object and ID while exposing Minecraft and loader metadata");
         using (var frame = window.CaptureRenderedFrame()) { check(frame is not null, "project details renders with existing NexLauncher theme"); frame!.Save(Path.Combine(root, "project-details.png"), PngBitmapEncoderOptions.Default); }
         var descriptionControl = view.GetVisualDescendants().OfType<ProjectDescriptionView>().Single();
-        var nativeText = descriptionControl.Children.OfType<TextBlock>().ToArray();
-        check(nativeText.Length == catalog.Details.Description.Blocks.Count && nativeText.SelectMany(x => x.Inlines!).OfType<InlineUIContainer>().Count() == 2, "safe render model becomes native TextBlocks and explicit link buttons");
+        var nativeText = descriptionControl.GetVisualDescendants().OfType<TextBlock>().ToArray();
+        check(descriptionControl.Children.Count == catalog.Details.Description.Blocks.Count && nativeText.SelectMany(x => x.Inlines!).OfType<InlineUIContainer>().Count() == 2, "safe render model becomes native text, code panels and explicit link buttons");
         scroll.Offset = new Vector(0, 650); Dispatcher.UIThread.RunJobs();
         using (var frame = window.CaptureRenderedFrame()) frame!.Save(Path.Combine(root, "project-description.png"), PngBitmapEncoderOptions.Default);
         var css = Path.Combine(root, "theme.css"); await File.WriteAllTextAsync(css, ".card { background: #302040; border-radius: 19px; } .quiet { color: #cc88ff; }");
@@ -150,6 +151,32 @@ internal static class ProjectDetailsChecks
         var cards = view.GetVisualDescendants().OfType<Border>().Where(x => x.Classes.Contains("card") && x.IsEffectivelyVisible).ToArray();
         check(result.IsApplied && cards.Length == 3 && cards.All(x => x.Background is ISolidColorBrush brush && brush.Color == Color.Parse("#302040")), "Quick CSS existing public card selector applies to project details without engine changes");
         using (var frame = window.CaptureRenderedFrame()) frame!.Save(Path.Combine(root, "project-description-themed.png"), PngBitmapEncoderOptions.Default);
+
+        // Exercise the real page template and disclosure, not a copy of the compatibility layout.
+        api.Projects[main.ProjectId].GameVersions = ["1.16.5", "1.20", "1.20.1", "1.21", "1.21.1", "1.21.4", "1.21.11", "26.1", "26.2", "26.3", "26.3-rc-2"];
+        api.Projects[main.ProjectId].Body = ReadableDescriptionChecks.MixedBody;
+        await catalog.RetryDetailsCommand.ExecuteAsync(null);
+        foreach (var width in new[] { 880, 1280 })
+        {
+            window.Width = width; Dispatcher.UIThread.RunJobs();
+            var disclosure = view.FindControl<Button>("AllMinecraftVersions")!;
+            var versionList = view.FindControl<ScrollViewer>("MinecraftVersionList")!;
+            check(disclosure.IsVisible && !versionList.IsVisible, "complete Minecraft compatibility list starts collapsed at width " + width);
+            disclosure.Command!.Execute(null); Dispatcher.UIThread.RunJobs();
+            check(catalog.Details!.AreMinecraftVersionsExpanded && versionList.IsVisible && versionList.Bounds.Height <= 240 && versionList.Extent.Height > 0, "version tags expand in a bounded scrollable panel at width " + width);
+            check(versionList.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == "26.3-rc-2") &&
+                versionList.GetVisualDescendants().OfType<Border>().Where(x => x.Classes.Contains("version-chip")).All(x => x.Bounds.Width <= versionList.Bounds.Width), "complete compatibility includes exact test versions and tags fit sidebar width " + width);
+            disclosure.BringIntoView(); Dispatcher.UIThread.RunJobs();
+            using (var frame = window.CaptureRenderedFrame()) frame!.Save(Path.Combine(root, "readable-details-" + width + ".png"), PngBitmapEncoderOptions.Default);
+            disclosure.Command.Execute(null); Dispatcher.UIThread.RunJobs();
+            check(!versionList.IsVisible, "Minecraft list can be collapsed again at width " + width);
+        }
+        // Keep the existing concrete older-version install regression below intact.
+        selector.SelectedItem = main;
+        var compatibilityCss = Path.Combine(root, "compatibility.css");
+        await File.WriteAllTextAsync(compatibilityCss, "#project-compatibility { background: #302040; } .version-chip { background: #194531; }");
+        result = await theme.ConfigureAsync(new() { Enabled = true, FilePath = compatibilityCss, AutoReload = false }); Dispatcher.UIThread.RunJobs();
+        check(result.IsApplied && view.GetVisualDescendants().OfType<Border>().Where(x => x.Classes.Contains("version-chip") && x.IsEffectivelyVisible).All(x => x.Background is ISolidColorBrush b && b.Color == Color.Parse("#194531")), "compatibility panel and version tags expose functional Quick CSS selectors");
         window.Close();
 
         await catalog.PrimaryActionCommand.ExecuteAsync(null);

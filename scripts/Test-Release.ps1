@@ -10,7 +10,7 @@ $root = Join-Path $repo ('.artifacts/release-smoke/Windows Релиз ' + [Guid]
 $app = Join-Path $root 'portable app'
 $native = Join-Path $root 'native cache'
 New-Item -ItemType Directory -Force $app, $native | Out-Null
-$expected = @('NexLauncher.exe', 'README.txt', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt', 'DEPENDENCIES.json')
+$expected = @('NexLauncher.exe', 'README.txt', 'LICENSE.txt', 'PRIVACY.txt', 'THIRD-PARTY-NOTICES.txt', 'DEPENDENCIES.json')
 $archive = [IO.Compression.ZipFile]::OpenRead($zip)
 try {
     $names = @($archive.Entries.FullName)

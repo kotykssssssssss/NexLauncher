@@ -57,10 +57,11 @@ public sealed class ProtectedAccountVault : IAccountVault
         catch (FileNotFoundException) { return AccountVaultSnapshot.Empty(); }
         catch (DirectoryNotFoundException) { return AccountVaultSnapshot.Empty(); }
         catch (OperationCanceledException) { throw; }
+        catch (AccountStorageException) { throw; }
         catch (Exception)
         {
             throw new AccountStorageException(
-                "Не удалось открыть защищённое хранилище аккаунтов. Возможно, файл повреждён или принадлежит другому пользователю Windows. Исходный файл сохранён: auth/accounts.dat.");
+                "Не удалось открыть защищённое хранилище аккаунтов. Возможно, файл повреждён, принадлежит другому пользователю или системный ключ недоступен. Исходный файл сохранён: auth/accounts.dat.");
         }
         finally
         {
@@ -88,9 +89,13 @@ public sealed class ProtectedAccountVault : IAccountVault
                 throw new InvalidDataException();
             var directory = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(directory);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             temporaryPath = Path.Combine(directory, $"accounts.{Guid.NewGuid():N}.tmp");
-            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write,
-                FileShare.None, 4096, FileOptions.WriteThrough))
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write,
+                Share = FileShare.None, Options = FileOptions.WriteThrough };
+            if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            using (var stream = new FileStream(temporaryPath, options))
             {
                 stream.Write(encrypted);
                 stream.Flush(flushToDisk: true);

@@ -5,6 +5,8 @@ No Visual Studio, .NET SDK or separate .NET Runtime is needed.
 NexLauncher.exe is self-contained and single-file. Native components are
 automatically extracted to the user's TEMP/.net directory at startup.
 Keep LICENSE.txt, THIRD-PARTY-NOTICES.txt and DEPENDENCIES.json when redistributing.
+PRIVACY.txt describes local storage and network requests; it is also available
+inside Settings > About. Review archives/logs before sharing them manually.
 
 Portable means no installation, NOT isolated data next to the EXE:
 settings, accounts, themes and default instances are in %LOCALAPPDATA%\NexLauncher.

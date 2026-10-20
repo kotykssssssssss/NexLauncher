@@ -49,7 +49,7 @@ public sealed class QuickCssStyleApplier : IDisposable
         _images = prepared.TakeImages();
         SetAccent(accent);
         return new(true, ruleCount, diagnostics.Distinct().ToArray(),
-            diagnostics.Count == 0 ? $"Quick CSS применён: {ruleCount} правил." : $"Quick CSS применён: {ruleCount} правил. Есть замечания.");
+            diagnostics.Count == 0 ? $"Quick CSS применён: {ruleCount} правил." : $"Quick CSS применён: {ruleCount} правил. Есть замечания.", prepared.Document.HomeLayout, prepared.Document.Appearance);
     }
 
     /// <summary>Inspect parser/selector/value diagnostics without applying styles or reading image files.</summary>

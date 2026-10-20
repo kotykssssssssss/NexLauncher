@@ -1,11 +1,25 @@
 # Windows release v0.1.1-alpha
 
-Skin Manager working tree проверяется отдельно: версия приложения пока сохранена
-`0.1.1-alpha`, следующую публичную версию нужно выбрать перед публикацией.
+macOS/Linux preview собирается отдельно: [PLATFORMS.md](PLATFORMS.md).
+Windows package process ниже сохранён. Unix-пакеты не single-file, не прошли
+native startup на этой машине и пока не имеют настроенного Microsoft Client ID.
+
+Текущий working tree включает Skin Manager, локальную библиотеку скинов,
+Export/Import, NexDoctor/NexStats и исправления описаний/совместимости Modrinth от 19 октября. Версия приложения пока сохранена
+`0.1.1-alpha`; следующую публичную версию нужно выбрать перед публикацией.
 Чтобы не заменять уже собранный patch, используй
-`pwsh -NoProfile -File scripts/Build-Release.ps1 -OutputName skin-manager-preview`.
-Artifacts будут в `.artifacts/releases/skin-manager-preview/`, имена файлов берутся
-из текущей версии csproj. Skin Manager manual checklist и ограничения — [SKINS.md](SKINS.md).
+`pwsh -NoProfile -File scripts/Build-Release.ps1 -OutputName curseforge-application-preview`.
+Artifacts будут в `.artifacts/releases/curseforge-application-preview/`, имена файлов берутся
+из текущей версии csproj. Результаты текущей проверки — [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md).
+Дополнительные ограничения/checklists: [SKINS.md](SKINS.md),
+[SKIN_CATALOG.md](SKIN_CATALOG.md), [INSTANCE_TRANSFER.md](INSTANCE_TRANSFER.md),
+[DOCTOR_STATS.md](DOCTOR_STATS.md).
+
+Текущая подготовка к заявке CurseForge не подключает API и не отправляет форму.
+Черновик находится в [CURSEFORGE_APPLICATION.md](CURSEFORGE_APPLICATION.md).
+В Installer/Portable включён `PRIVACY.txt`; тот же текст встроен в приложение
+и доступен без интернета в настройках. Все отмеченные пользователем подписи-слоганы
+удалены. Экспорт копий файлов требует отдельного подтверждения проверки прав.
 
 Патч поверх `v0.1.0-alpha`: селектор Modrinth Mods/Modpacks показывает номер проекта,
 Minecraft versions и loaders. Подпись выбранной версии содержит полный список,
@@ -35,8 +49,9 @@ Native библиотеки bundle извлекаются runtime в польз�
 Нужны доступная для записи TEMP и локальная папка данных. Это настоящий single-file
 payload с извлечением native компонентов, а не EXE, скачивающий себе .NET.
 Trimming, Native AOT и bundle compression выключены ради совместимости.
-Нет отдельной новой иконки: подходящий открытый `.ico` в используемых source assets
-не задан, поэтому launcher сохраняет стандартный executable icon.
+Иконка приложения, его окон и установщика — зелёная «N» NexLauncher. Исходник:
+`Assets/branding/NexLauncher.svg`, ICO содержит 16/24/32/48/64/128/256 px.
+`scripts/Generate-AppIcon.ps1` воспроизводит ICO на Windows без сторонних инструментов.
 
 ### WebView2, Java и сеть
 

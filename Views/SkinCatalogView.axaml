@@ -5,7 +5,6 @@
         <StackPanel Spacing="6" Margin="0,0,0,12">
             <TextBlock Text="Скины" FontSize="26" FontWeight="SemiBold"/>
             <TextBlock Text="{Binding Source.Name}" Foreground="{DynamicResource NxAccentBrush}"/>
-            <TextBlock Text="{Binding Source.Description}" Classes="caption" TextWrapping="Wrap"/>
             <Expander Header="Где найти PNG для импорта" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <StackPanel Spacing="6">
                     <TextBlock Text="Эти ссылки открывают сайты в обычном браузере. Скачанный PNG импортируй в библиотеку. Это не автоматический поиск по их каталогам." Classes="caption" TextWrapping="Wrap"/>

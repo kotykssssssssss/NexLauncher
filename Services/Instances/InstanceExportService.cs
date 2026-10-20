@@ -28,8 +28,8 @@ public sealed class InstanceExportService(ModManager mods)
             OriginalModpackProjectId = instance.ModrinthProjectId, OriginalModpackVersionId = instance.ModrinthVersionId
         };
         var notices = new List<string>();
-        var integrity = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        var managedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var integrity = new Dictionary<string, bool>(SafePaths.PathComparer);
+        var managedPaths = new HashSet<string>(SafePaths.PathComparer);
         foreach (var mod in installed.Projects)
         {
             token.ThrowIfCancellationRequested();
@@ -112,7 +112,10 @@ public sealed class InstanceExportService(ModManager mods)
                         var file = plan.Manifest.Files[i];
                         progress.Report(new($"Export: {i + 1}/{plan.Manifest.Files.Count} — {file.Path}", i * 100d / Math.Max(1, plan.Manifest.Files.Count)));
                         await using var input = File.OpenRead(SafePaths.Resolve(plan.SourceDirectory, file.Path));
-                        await using var entry = zip.CreateEntry("files/" + file.Path, CompressionLevel.Fastest).Open();
+                        // Large repetitive configs must not produce packages rejected as ZIP bombs
+                        // by our own reader. Already compressed JAR/ZIP/PNG files gain little here.
+                        var compression = file.Size > 1024 * 1024 ? CompressionLevel.NoCompression : CompressionLevel.Fastest;
+                        await using var entry = zip.CreateEntry("files/" + file.Path, compression).Open();
                         await InstancePackageReader.CopyVerifiedAsync(input, entry, file.Size, file.Sha256, token).ConfigureAwait(false);
                     }
                 }

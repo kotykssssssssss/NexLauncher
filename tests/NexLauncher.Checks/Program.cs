@@ -30,14 +30,41 @@ internal static class Program
         {
             try
             {
+                if (args.Contains("--platform-only"))
+                {
+                    await PlatformChecks.RunAsync(Root, Check);
+                    Console.WriteLine($"PASS: {_checks} checks. Artifacts: {Root}");
+                    return;
+                }
+                if (args.Contains("--application-review-only"))
+                {
+                    await ApplicationReadinessChecks.RunAsync(Root, Check);
+                    await InstanceTransferChecks.RunAsync(Root, Check);
+                    Console.WriteLine($"PASS: {_checks} checks. Screenshots: {Root}");
+                    return;
+                }
+                if (args.Contains("--appearance-only"))
+                {
+                    await AppearanceChecks.RunAsync(Root, Check);
+                    Console.WriteLine($"PASS: {_checks} checks. Screenshots: {Root}");
+                    return;
+                }
+                if (args.Contains("--home-layout-only"))
+                {
+                    await HomeLayoutChecks.RunAsync(Root, Check);
+                    Console.WriteLine($"PASS: {_checks} checks. Screenshots: {Root}");
+                    return;
+                }
                 QuickCssParserChecks.Run(Check);
                 await QuickCssRuntimeChecks.RunAsync(Root, Check);
                 await QuickCssEditorChecks.RunAsync(Root, Check);
                 await AuthenticationChecks.RunAsync(Root, Check);
+                await PlatformChecks.RunAsync(Root, Check);
                 OfflineLaunchChecks.Run(Check);
                 await LocalAccountChecks.RunAsync(Root, Check);
                 await SkinChecks.RunAsync(Root, Check);
                 await SkinCatalogChecks.RunAsync(Root, Check);
+                await DoctorStatsChecks.RunAsync(Root, Check);
                 await CheckStorage();
                 await CheckViewModel();
                 await CheckBackendGuards();
@@ -45,9 +72,13 @@ internal static class Program
                 await ModdedChecks.RunAsync(Root, Check);
                 await InstanceTransferChecks.RunAsync(Root, Check);
                 await ProjectDetailsChecks.RunAsync(Root, Check);
+                await ReadableDescriptionChecks.RunAsync(Root, Check);
+                await HomeLayoutChecks.RunAsync(Root, Check);
+                await AppearanceChecks.RunAsync(Root, Check);
                 ModrinthVersionDisplayChecks.Run(Check);
                 await ModrinthBrowserChecks.RunAsync(Root, Check);
                 await ReleaseChecks.RunAsync(Root, Check);
+                await ApplicationReadinessChecks.RunAsync(Root, Check);
                 if (args.Contains("--modded-network")) await ModdedChecks.LiveAsync(Check);
                 if (args.Contains("--browser-live") || args.Contains("--browser-install-live"))
                     await ModrinthBrowserChecks.LiveAsync(Root, Check, args.Contains("--browser-install-live"));
@@ -214,12 +245,14 @@ internal static class Program
         vm.SelectedInstance = vm.Instances[1];
         game.HoldInstall = true;
         game.InstallStarted = false;
+        var accountStatus = vm.Accounts.Status;
         var installing = vm.PrimaryCommand.ExecuteAsync(null);
         await Until(() => game.InstallStarted);
         Check(vm.CancelCommand.CanExecute(null) && !vm.CreateInstanceCommand.CanExecute(null), "install exposes cancel and locks editing");
         vm.CancelCommand.Execute(null);
         await installing;
         Check(vm.IsEditable && !vm.IsInstalled, "cancelled installation resets UI without fake installed state");
+        Check(vm.Accounts.Status == accountStatus, "cancelling installation does not overwrite unrelated account status");
 
         // A failed persistence operation must roll RAM back in memory as well as preserve the original file.
         var oldMemory = vm.SelectedInstance.MemoryMb;
@@ -311,7 +344,9 @@ internal static class Program
         await Task.Delay(350);
         AvaloniaHeadlessPlatform.ForceRenderTimerTick(60);
         Dispatcher.UIThread.RunJobs();
-        var defaultPlayButton = window.GetVisualDescendants().OfType<Button>().Single(x => x.Classes.Contains("qc-play-button"));
+        // Verify the original control even while Settings is shown; alternate layouts own another button.
+        var defaultPlayButton = window.GetVisualDescendants().OfType<Button>().Single(x => x.Classes.Contains("qc-play-button") &&
+            !x.GetVisualAncestors().OfType<NexLauncher.Views.HomeInstancesView>().Any());
         var defaultPresenter = defaultPlayButton.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First();
         Check((defaultPlayButton.Background as ISolidColorBrush)?.Color == Color.Parse("#78D9B3") &&
               (defaultPresenter.Background as ISolidColorBrush)?.Color == Color.Parse("#78D9B3"),
